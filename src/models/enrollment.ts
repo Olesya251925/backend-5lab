@@ -1,18 +1,15 @@
-import mongoose, { Schema, type Document } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
 export interface IEnrollment extends Document {
-  userId: mongoose.Schema.Types.ObjectId;
-  courseId: mongoose.Schema.Types.ObjectId;
-  completedLessons: mongoose.Schema.Types.ObjectId[];
-  enrolledAt: Date;
+  userId: number; // userId как число
+  courseId: number; // courseId как число
+  completedLessons: number[]; // Список завершённых уроков (если это нужно)
 }
 
 const EnrollmentSchema = new Schema<IEnrollment>({
-  userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  courseId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  completedLessons: [{ type: mongoose.Schema.Types.ObjectId, ref: "Lesson" }],
-  enrolledAt: { type: Date, default: Date.now },
+  userId: { type: Number, required: true }, // Числовой userId
+  courseId: { type: Number, required: true }, // Числовой courseId
+  completedLessons: { type: [Number], default: [] }, // Массив завершённых уроков
 });
 
-export const Enrollment = mongoose.model<IEnrollment>("Enrollment", EnrollmentSchema);
-export default Enrollment;
+export default mongoose.model<IEnrollment>("Enrollment", EnrollmentSchema);
