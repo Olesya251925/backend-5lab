@@ -8,6 +8,7 @@ import courseRoutes from "./routes/courseRoutes";
 import tagRoutes from "./routes/tagRoutes";
 import lessonRoutes from "./routes/lessonRoutes";
 import commentRoutes from "./routes/commentRoutes";
+import enrollmentRoutes from "./routes/enrollmentRoutes";
 
 dotenv.config();
 const app = express();
@@ -25,6 +26,7 @@ app.use("/courses", courseRoutes);
 app.use("/tags", tagRoutes);
 app.use("/api/lessons", lessonRoutes);
 app.use("/api/comments", commentRoutes);
+app.use("/api/enrollments", enrollmentRoutes);
 
 app.use((err: Error, _req: Request, res: Response) => {
   console.error(err.stack);
