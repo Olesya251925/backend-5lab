@@ -4,6 +4,7 @@ import {
   getCourseProgress,
   countCourseEnrollments,
   cancelLessonCompletion,
+  completeLesson,
 } from "../controllers/enrollmentController";
 
 const router = express.Router();
@@ -13,5 +14,6 @@ router.post("/enroll/:courseId", enrollInCourse); // Запись на курс
 router.get("/progress/:courseId", getCourseProgress); // Получение прогресса по курсу
 router.get("/count/:courseId", countCourseEnrollments); // Подсчёт студентов на курсе
 router.delete("/cancel/:courseId/:lessonId", cancelLessonCompletion); // Отмена прохождения урока
+router.post("/complete/:courseId/:lessonId", completeLesson); // Завершение урока
 
 export default router;

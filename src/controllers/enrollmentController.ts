@@ -9,16 +9,14 @@ export const enrollInCourse: RequestHandler = async (
 ): Promise<void> => {
   try {
     const { userId } = req.body;
-    const { courseId } = req.params;
+    const courseId = Number(req.params.courseId);
 
-    // Проверяем, существует ли уже запись
     const existingEnrollment = await Enrollment.findOne({ userId, courseId });
     if (existingEnrollment) {
       res.status(400).json({ message: "Пользователь уже записан на этот курс" });
       return;
     }
 
-    // Создаём новую запись
     const enrollment = await Enrollment.create({ userId, courseId });
     res.status(201).json(enrollment);
   } catch (error) {
@@ -33,16 +31,14 @@ export const getCourseProgress: RequestHandler = async (
 ): Promise<void> => {
   try {
     const { userId } = req.body;
-    const { courseId } = req.params;
+    const courseId = Number(req.params.courseId);
 
-    // Находим запись о пользователе на курсе
     const enrollment = await Enrollment.findOne({ userId, courseId });
     if (!enrollment) {
       res.status(404).json({ message: "Нет записи на курс" });
       return;
     }
 
-    // Получаем все уроки, относящиеся к курсу
     const lessons = await Lesson.find({ courseId });
 
     const totalLessons = lessons.length;
@@ -61,7 +57,7 @@ export const countCourseEnrollments: RequestHandler = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { courseId } = req.params;
+    const courseId = Number(req.params.courseId);
     const count = await Enrollment.countDocuments({ courseId });
     res.json({ courseId, count });
   } catch (error) {
@@ -76,12 +72,12 @@ export const cancelLessonCompletion: RequestHandler = async (
 ): Promise<void> => {
   try {
     const { userId } = req.body;
-    const { courseId, lessonId } = req.params;
+    const courseId = Number(req.params.courseId);
+    const lessonId = Number(req.params.lessonId);
 
-    // Находим запись о прохождении курса
     const enrollment = await Enrollment.findOneAndUpdate(
       { userId, courseId },
-      { $pull: { completedLessons: lessonId } }, // Удаляем урок из завершённых
+      { $pull: { completedLessons: lessonId } },
       { new: true },
     );
 
@@ -90,7 +86,6 @@ export const cancelLessonCompletion: RequestHandler = async (
       return;
     }
 
-    // Получаем все уроки курса
     const lessons = await Lesson.find({ courseId });
 
     const totalLessons = lessons.length;
@@ -101,5 +96,42 @@ export const cancelLessonCompletion: RequestHandler = async (
     res.json({ message: "Прохождение урока отменено", progress, enrollment });
   } catch (error) {
     res.status(500).json({ message: "Ошибка при отмене прохождения урока", error });
+  }
+};
+
+// 5. Завершение урока
+export const completeLesson: RequestHandler = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { userId } = req.body;
+    const courseId = Number(req.params.courseId);
+    const lessonId = Number(req.params.lessonId);
+
+    const enrollment = await Enrollment.findOne({ userId, courseId });
+    if (!enrollment) {
+      res.status(404).json({ message: "Нет записи на курс" });
+      return;
+    }
+
+    if (enrollment.completedLessons.includes(lessonId)) {
+      res.status(400).json({ message: "Урок уже завершён" });
+      return;
+    }
+
+    enrollment.completedLessons.push(lessonId);
+    await enrollment.save();
+
+    const lessons = await Lesson.find({ courseId });
+
+    const totalLessons = lessons.length;
+    const completed = enrollment.completedLessons.length;
+
+    const progress = Math.round((completed / totalLessons) * 100);
+
+    res.json({ message: "Урок завершён", progress, enrollment });
+  } catch (error) {
+    res.status(500).json({ message: "Ошибка при завершении урока", error });
   }
 };
