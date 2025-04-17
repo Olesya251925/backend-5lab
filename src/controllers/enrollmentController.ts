@@ -1,101 +1,134 @@
 import { Request, Response, RequestHandler } from "express";
-import Enrollment from "../models/enrollment";
+import Progress from "../models/enrollment";
 import Lesson from "../models/lesson";
+import Course from "../models/course";
+import User from "../models/user";
 
-// 1. Запись на курс
+// 1. Запись на курс и создание записи прогресса
 export const enrollInCourse: RequestHandler = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const { userId } = req.body;
-    const courseId = Number(req.params.courseId);
+    const courseId = req.params.courseId;
 
-    const existingEnrollment = await Enrollment.findOne({ userId, courseId });
-    if (existingEnrollment) {
-      res.status(400).json({ message: "Пользователь уже записан на этот курс" });
+    const user = await User.findOne({ id: userId });
+    if (!user) {
+      res.status(404).json({ message: "Пользователь не найден" });
       return;
     }
 
-    const enrollment = await Enrollment.create({ userId, courseId });
-    res.status(201).json(enrollment);
+    const course = await Course.findOne({ courseId });
+    if (!course) {
+      res.status(404).json({ message: "Курс не найден" });
+      return;
+    }
+
+    const existingProgress = await Progress.findOne({ userId, courseId });
+    if (existingProgress) {
+      res.status(400).json({ message: "Пользователь уже записан на курс" });
+      return;
+    }
+
+    // Создаём запись прогресса
+    const progress = new Progress({
+      userId,
+      courseId,
+      lessonsCompleted: [],
+      progressPercentage: 0,
+    });
+
+    await progress.save();
+    res.status(201).json(progress);
   } catch (error) {
-    res.status(400).json({ message: "Ошибка при записи на курс", error });
+    res.status(500).json({ message: "Ошибка при записи на курс", error });
   }
 };
 
-// 2. Получить прогресс по курсу
+// 2. Получение прогресса по курсу
 export const getCourseProgress: RequestHandler = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const { userId } = req.body;
-    const courseId = Number(req.params.courseId);
+    const courseId = req.params.courseId;
 
-    const enrollment = await Enrollment.findOne({ userId, courseId });
-    if (!enrollment) {
-      res.status(404).json({ message: "Нет записи на курс" });
+    const progress = await Progress.findOne({ userId, courseId });
+    if (!progress) {
+      res.status(404).json({ message: "Запись о прогрессе не найдена" });
       return;
     }
 
     const lessons = await Lesson.find({ courseId });
 
     const totalLessons = lessons.length;
-    const completed = enrollment.completedLessons.length;
+    const completedLessons = progress.lessonsCompleted.length;
+    const progressPercentage =
+      totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
 
-    const progress = Math.round((completed / totalLessons) * 100);
-    res.json({ progress });
+    progress.progressPercentage = progressPercentage;
+    await progress.save();
+
+    res.json({ progressPercentage });
   } catch (error) {
     res.status(500).json({ message: "Ошибка получения прогресса", error });
   }
 };
 
-// 3. Подсчитать студентов на курсе
+// 3. Подсчёт студентов на курсе
 export const countCourseEnrollments: RequestHandler = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
-    const courseId = Number(req.params.courseId);
-    const count = await Enrollment.countDocuments({ courseId });
+    const courseId = req.params.courseId;
+
+    const count = await Progress.countDocuments({ courseId });
     res.json({ courseId, count });
   } catch (error) {
     res.status(500).json({ message: "Ошибка подсчёта студентов", error });
   }
 };
 
-// 4. Отмена прохождения урока
+// 4. Отмена завершения урока и пересчёт прогресса
 export const cancelLessonCompletion: RequestHandler = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const { userId } = req.body;
-    const courseId = Number(req.params.courseId);
-    const lessonId = Number(req.params.lessonId);
+    const courseId = req.params.courseId;
+    const lessonId = req.params.lessonId;
 
-    const enrollment = await Enrollment.findOneAndUpdate(
-      { userId, courseId },
-      { $pull: { completedLessons: lessonId } },
-      { new: true },
-    );
-
-    if (!enrollment) {
-      res.status(404).json({ message: "Запись на курс не найдена" });
+    const progress = await Progress.findOne({ userId, courseId });
+    if (!progress) {
+      res.status(404).json({ message: "Запись о прогрессе не найдена" });
       return;
     }
 
+    if (!progress.lessonsCompleted.includes(Number(lessonId))) {
+      res.status(400).json({ message: "Этот урок не завершён" });
+      return;
+    }
+
+    progress.lessonsCompleted = progress.lessonsCompleted.filter(
+      (lesson) => lesson !== Number(lessonId),
+    );
+
     const lessons = await Lesson.find({ courseId });
-
     const totalLessons = lessons.length;
-    const completed = enrollment.completedLessons.length;
+    const completedLessons = progress.lessonsCompleted.length;
+    const progressPercentage =
+      totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
 
-    const progress = Math.round((completed / totalLessons) * 100);
+    progress.progressPercentage = progressPercentage;
+    await progress.save();
 
-    res.json({ message: "Прохождение урока отменено", progress, enrollment });
+    res.json({ message: "Урок отменён, прогресс обновлён", progressPercentage });
   } catch (error) {
-    res.status(500).json({ message: "Ошибка при отмене прохождения урока", error });
+    res.status(500).json({ message: "Ошибка отмены урока", error });
   }
 };
 
@@ -106,32 +139,43 @@ export const completeLesson: RequestHandler = async (
 ): Promise<void> => {
   try {
     const { userId } = req.body;
-    const courseId = Number(req.params.courseId);
+    const courseId = req.params.courseId;
     const lessonId = Number(req.params.lessonId);
 
-    const enrollment = await Enrollment.findOne({ userId, courseId });
-    if (!enrollment) {
-      res.status(404).json({ message: "Нет записи на курс" });
+    const progress = await Progress.findOne({ userId, courseId });
+    if (!progress) {
+      res.status(404).json({ message: "Запись о прогрессе не найдена" });
       return;
     }
 
-    if (enrollment.completedLessons.includes(lessonId)) {
-      res.status(400).json({ message: "Урок уже завершён" });
+    const lessonsInCourse = await Lesson.find({ courseId });
+    const lessonIds = lessonsInCourse.map((l) => l.id);
+
+    if (!lessonIds.includes(lessonId)) {
+      res.status(400).json({ message: "Урок не относится к данному курсу" });
       return;
     }
 
-    enrollment.completedLessons.push(lessonId);
-    await enrollment.save();
+    if (progress.lessonsCompleted.includes(lessonId)) {
+      res.status(400).json({ message: "Этот урок уже завершён" });
+      return;
+    }
 
-    const lessons = await Lesson.find({ courseId });
+    progress.lessonsCompleted.push(lessonId);
 
-    const totalLessons = lessons.length;
-    const completed = enrollment.completedLessons.length;
+    const totalLessons = lessonIds.length;
+    const completedLessons = progress.lessonsCompleted.filter((id) =>
+      lessonIds.includes(id),
+    ).length;
 
-    const progress = Math.round((completed / totalLessons) * 100);
+    const progressPercentage =
+      totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
 
-    res.json({ message: "Урок завершён", progress, enrollment });
+    progress.progressPercentage = Math.min(progressPercentage, 100);
+    await progress.save();
+
+    res.json({ message: "Урок завершён", progressPercentage });
   } catch (error) {
-    res.status(500).json({ message: "Ошибка при завершении урока", error });
+    res.status(500).json({ message: "Ошибка завершения урока", error });
   }
 };

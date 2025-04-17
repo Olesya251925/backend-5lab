@@ -1,15 +1,19 @@
-import mongoose, { Schema, Document } from "mongoose";
+import { Schema, model, Document } from "mongoose";
 
-export interface IEnrollment extends Document {
-  userId: number; // userId как число
-  courseId: number; // courseId как число
-  completedLessons: number[]; // Список завершённых уроков (если это нужно)
+interface IProgress extends Document {
+  userId: string;
+  courseId: string;
+  lessonsCompleted: number[];
+  progressPercentage: number;
 }
 
-const EnrollmentSchema = new Schema<IEnrollment>({
-  userId: { type: Number, required: true }, // Числовой userId
-  courseId: { type: Number, required: true }, // Числовой courseId
-  completedLessons: { type: [Number], default: [] }, // Массив завершённых уроков
+const progressSchema = new Schema<IProgress>({
+  userId: { type: String, required: true },
+  courseId: { type: String, required: true },
+  lessonsCompleted: { type: [Number], default: [] },
+  progressPercentage: { type: Number, default: 0 },
 });
 
-export default mongoose.model<IEnrollment>("Enrollment", EnrollmentSchema);
+const Progress = model<IProgress>("Progress", progressSchema);
+
+export default Progress;

@@ -9,11 +9,10 @@ import {
 
 const router = express.Router();
 
-// Исправляем маршруты
-router.post("/enroll/:courseId", enrollInCourse); // Запись на курс
-router.get("/progress/:courseId", getCourseProgress); // Получение прогресса по курсу
-router.get("/count/:courseId", countCourseEnrollments); // Подсчёт студентов на курсе
-router.delete("/cancel/:courseId/:lessonId", cancelLessonCompletion); // Отмена прохождения урока
-router.post("/complete/:courseId/:lessonId", completeLesson); // Завершение урока
+router.post("/enroll/:courseId", enrollInCourse);
+router.get("/progress/:courseId", getCourseProgress);
+router.get("/count/:courseId", countCourseEnrollments);
+router.delete("/cancel/:courseId/:lessonId", cancelLessonCompletion);
+router.post("/complete/:courseId/:lessonId", completeLesson);
 
 export default router;
