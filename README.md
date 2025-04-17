@@ -244,4 +244,6 @@ To find out how many students are enrolled in a particular course:
 
 This returns the total number of users enrolled in the course.
 
+The request should include the `userId` (the ID of the user) to check enrollment information specific to that user.
+
 To run the project, you need to install the necessary dependencies and start the project with the command `yarn run dev`.
