@@ -187,4 +187,61 @@ This request returns the course along with detailed tag information, including t
 4. **Delete Comment**  
    `DELETE http://localhost:3000/api/comments/:id`
 
+# CHAPTER 3 - COURSE ENROLLMENT AND LESSON PROGRESS
+
+## Enrollment and Progress Management
+
+This chapter adds functionality for enrolling users in courses, tracking lesson completion, calculating progress, and managing enrollments.
+
+### Enroll in a Course
+
+To enroll a user in a course:
+
+**POST**  
+`http://localhost:3000/api/enrollments/enroll/:courseId`
+
+Replace `:courseId` with the actual course ID.
+
+---
+
+### Complete a Lesson
+
+To mark a lesson as completed by a user:
+
+**POST**  
+`http://localhost:3000/api/enrollments/complete/:courseId/:lessonId`
+
+Replace `:courseId` and `:lessonId` with the actual IDs.
+
+---
+
+### Track Course Progress
+
+You can calculate how far along a user is in a course by comparing the number of completed lessons to the total lessons in that course.
+
+**GET**  
+`http://localhost:3000/api/enrollments/progress/:courseId`
+
+This returns the user's progress for a specific course as a percentage.
+
+---
+
+### Cancel Completion of a Lesson
+
+To remove a lesson from the list of completed lessons for a user:
+
+**DELETE**  
+`http://localhost:3000/api/enrollments/cancel/:courseId/:lessonId`
+
+---
+
+### Count Enrolled Students
+
+To find out how many students are enrolled in a particular course:
+
+**GET**  
+`http://localhost:3000/api/enrollments/count/:courseId`
+
+This returns the total number of users enrolled in the course.
+
 To run the project, you need to install the necessary dependencies and start the project with the command `yarn run dev`.

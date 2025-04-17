@@ -4,10 +4,7 @@ import User from "../models/user";
 import Lesson from "../models/lesson";
 
 // Получить все комментарии к уроку
-export const getCommentsByLessonId = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getCommentsByLessonId = async (req: Request, res: Response): Promise<void> => {
   try {
     const lessonId = parseInt(req.params.lessonId);
 
@@ -44,14 +41,10 @@ export const getCommentsByLessonId = async (
 };
 
 // Создать новый комментарий
-export const createComment = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const createComment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { user, lesson, text } = req.body;
 
-    // Проверка наличия обязательных полей
     if (!user || !lesson || !text) {
       res.status(400).json({
         error: "Все поля обязательны для заполнения",
@@ -60,21 +53,18 @@ export const createComment = async (
       return;
     }
 
-    // Проверяем существование пользователя
     const userExists = await User.findOne({ id: user });
     if (!userExists) {
       res.status(404).json({ error: "Пользователь не найден" });
       return;
     }
 
-    // Проверяем существование урока
     const lessonExists = await Lesson.findOne({ id: lesson });
     if (!lessonExists) {
       res.status(404).json({ error: "Урок не найден" });
       return;
     }
 
-    // Получаем все комментарии для определения следующего id
     const comments = await Comment.find().sort({ id: -1 });
     const nextId = comments.length > 0 ? comments[0].id + 1 : 1;
 
@@ -105,28 +95,22 @@ export const createComment = async (
 };
 
 // Обновить комментарий
-export const updateComment = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const updateComment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { text } = req.body;
 
-    // Проверяем наличие текста
     if (!text) {
       res.status(400).json({ error: "Текст комментария обязателен" });
       return;
     }
 
-    // Ищем комментарий по числовому id
     const comment = await Comment.findOne({ id: parseInt(id) });
     if (!comment) {
       res.status(404).json({ error: "Комментарий не найден" });
       return;
     }
 
-    // Обновляем текст комментария
     comment.text = text;
     await comment.save();
 
@@ -148,21 +132,16 @@ export const updateComment = async (
 };
 
 // Удалить комментарий
-export const deleteComment = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const deleteComment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
-    // Ищем комментарий по числовому id
     const comment = await Comment.findOne({ id: parseInt(id) });
     if (!comment) {
       res.status(404).json({ error: "Комментарий не найден" });
       return;
     }
 
-    // Удаляем найденный комментарий
     await comment.deleteOne();
     res.json({ message: "Комментарий успешно удален" });
   } catch (error) {
