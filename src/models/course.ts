@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
-import slugify from "slugify";
+import { CourseLevel } from "../types/course";
 
 export interface ICourse extends Document {
   courseId: number;
@@ -9,40 +9,33 @@ export interface ICourse extends Document {
   price: number;
   image: string;
   category: string;
-  level: "beginner" | "intermediate" | "advanced";
-  published: boolean;
+  level: CourseLevel;
   author: string;
   tags: number[];
   isFavorited: boolean;
   createdAt: Date;
 }
 
-const CourseSchema = new Schema<ICourse>({
-  courseId: { type: Number, unique: true },
-  title: { type: String, required: true },
-  slug: { type: String, required: true, unique: true },
-  description: { type: String },
-  price: { type: Number, required: true },
-  image: { type: String, required: true },
-  category: { type: String, required: true },
-  level: {
-    type: String,
-    enum: ["beginner", "intermediate", "advanced"],
-    default: "beginner",
-    required: true,
+const CourseSchema = new Schema<ICourse>(
+  {
+    courseId: { type: Number, unique: true },
+    title: { type: String, required: true },
+    slug: { type: String, required: true, unique: true },
+    description: { type: String },
+    price: { type: Number, required: true },
+    image: { type: String, required: true },
+    category: { type: String, required: true },
+    level: {
+      type: String,
+      enum: ["beginner", "intermediate", "advanced"],
+      required: true,
+    },
+    author: { type: String, required: true },
+    tags: [{ type: Number }],
+    isFavorited: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
   },
-  published: { type: Boolean, default: false },
-  author: { type: String, required: true },
-  tags: [{ type: Number }],
-  isFavorited: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now, required: true },
-});
-
-CourseSchema.pre("save", function (next) {
-  if (this.isModified("title")) {
-    this.slug = slugify(this.title, { lower: true, strict: true });
-  }
-  next();
-});
+  { versionKey: false },
+);
 
 export default mongoose.model<ICourse>("Course", CourseSchema);

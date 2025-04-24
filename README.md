@@ -69,28 +69,28 @@ Each course includes the following fields:
 ### API Methods
 
 1. **Create a New Course** - `POST`  
-   `http://localhost:3000/courses`
+   `http://localhost:3000/api/courses`
 
 2. **Get All Courses** - `GET`
-   `http://localhost:3000/courses`
+   `http://localhost:3000/api/courses`
 
 3. **Get Course by ID** - `GET`
-   `http://localhost:3000/courses/{id}`
+   `http://localhost:3000/api/courses/{id}`
 
 Replace `{id}` with the actual course ID.
 
 4. **Update Course by ID** - `PUT`  
-   `http://localhost:3000/courses/{id}`
+   `http://localhost:3000/api/courses/{id}`
 
 5. **Delete Course by ID** - `DELETE`  
-   `http://localhost:3000/courses/{id}`
+   `http://localhost:3000/api/courses/{id}`
 
 6. **Get Courses with Sorting** - `GET`  
    Sorting by creation date (ascending):  
-    `http://localhost:3000/courses?sortBy=createdAt&sortOrder=asc`
+    `http://localhost:3000/api/courses?sortBy=createdAt&sortOrder=asc`
 
 Sorting by creation date (descending):  
- `http://localhost:3000/courses?sortBy=createdAt&sortOrder=desc`
+ `http://localhost:3000/api/courses?sortBy=createdAt&sortOrder=desc`
 
 The `sortOrder` parameter determines the sorting order:
 
@@ -98,36 +98,36 @@ The `sortOrder` parameter determines the sorting order:
 - `desc` for descending
 
 7. **Get Courses with Pagination** - `GET`  
-   `http://localhost:3000/courses?page=1&limit=2`
+   `http://localhost:3000/api/courses?page=1&limit=2`
 
 8. **Get Courses by Category (Filtering)** - `GET`  
-   `http://localhost:3000/courses?category=your_category`
+   `http://localhost:3000/api/courses?category=your_category`
 
 9. **Search Courses by Title** - `GET`  
-   `http://localhost:3000/courses?search=title`
+   `http://localhost:3000/api/courses?search=title`
 
 ### Favorite Courses
 
 Users can add courses to their favorites. The `favorite` field is used, where `true` means the course is favorited, and `false` means it is not.
 
 10. **Add Course to Favorites** - `POST`  
-    `http://localhost:3000/courses/favorite/{id_course}`
+    `http://localhost:3000/api/courses/favorite/{id_course}`
 
 11. **Remove Course from Favorites** - `DELETE`  
-    `http://localhost:3000/courses/favorite/{id_course}`
+    `http://localhost:3000/api/courses/favorite/{id_course}`
 
 ### Course Tags System
 
 Each course can have multiple tags (one-to-many relationship).
 
 12. **Add a Tag** - `POST`  
-    `http://localhost:3000/tags`
+    `http://localhost:3000/api/tags`
 
 13. **View All Tags** - `GET`  
-    `http://localhost:3000/tags`
+    `http://localhost:3000/api/tags`
 
 14. **Get Tags for a Specific Course** - `GET`  
-    `http://localhost:3000/courses/{id}/tags`
+    `http://localhost:3000/api/courses/{id}/tags`
 
 This request returns the course along with detailed tag information, including tag names.
 
@@ -187,7 +187,7 @@ This request returns the course along with detailed tag information, including t
 4. **Delete Comment**  
    `DELETE http://localhost:3000/api/comments/:id`
 
-# CHAPTER 3 - COURSE ENROLLMENT AND LESSON PROGRESS
+# CHAPTER 4 - COURSE ENROLLMENT AND LESSON PROGRESS
 
 ## Enrollment and Progress Management
 

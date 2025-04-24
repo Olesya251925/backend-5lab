@@ -5,9 +5,10 @@ import Course from "../models/course";
 import { getNextCourseId } from "../models/utils";
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
-import moment from "moment-timezone";
 import Tag from "../models/tagModel";
+import { validateRequiredCourseFields } from "../utils/validateCourse";
+import { processCourseImage } from "../utils/processImage";
+import { CourseLevel } from "../types/course";
 
 // Получить все курсы
 export const getCourses = asyncHandler(async (req: Request, res: Response) => {
@@ -46,10 +47,7 @@ export const getCourses = asyncHandler(async (req: Request, res: Response) => {
     sortOptions[sortBy] = sortOrder === "asc" ? 1 : -1;
 
     // Получение курсов с учетом фильтров, сортировки и пагинации
-    const courses = await Course.find(filter)
-      .sort(sortOptions)
-      .limit(currentLimit)
-      .skip(skip);
+    const courses = await Course.find(filter).sort(sortOptions).limit(currentLimit).skip(skip);
 
     res.json({
       totalCount: count,
@@ -64,183 +62,128 @@ export const getCourses = asyncHandler(async (req: Request, res: Response) => {
 });
 
 // Получить курс по ID
-export const getCourseById = asyncHandler(
-  async (req: Request, res: Response) => {
-    const course = await Course.findOne({ courseId: req.params.id });
+export const getCourseById = asyncHandler(async (req: Request, res: Response) => {
+  const course = await Course.findOne({ courseId: req.params.id });
 
-    if (!course) {
-      res.status(404).json({ message: "Курс не найден" });
-      return;
-    }
+  if (!course) {
+    res.status(404).json({ message: "Курс не найден" });
+    return;
+  }
 
-    res.json(course);
-  },
-);
+  res.json(course);
+});
 
-// Создать курс
-export const createCourse = asyncHandler(
-  async (req: Request, res: Response) => {
-    try {
-      const {
-        title,
-        description,
-        price,
-        image,
-        category,
-        level,
-        author,
-        tags,
-        isFavorite,
-      } = req.body;
+// создать курс
+export const createCourse = asyncHandler(async (req: Request, res: Response) => {
+  const { title, description, price, image, category, level, author, tags, isFavorite } = req.body;
 
-      if (!title || !price || !image || !category || !author) {
-        res.status(400).json({ message: "Обязательные поля не заполнены" });
-        return;
-      }
+  if (validateRequiredCourseFields({ title, price, image, category, author })) {
+    res.status(400).json({ message: "Обязательные поля не заполнены" });
+    return;
+  }
 
-      const slug = slugify(title, { lower: true, strict: true });
-      const existingCourse = await Course.findOne({ slug });
+  const slug = slugify(title, { lower: true, strict: true });
+  const existingCourse = await Course.findOne({ slug });
 
-      if (existingCourse) {
-        res
-          .status(400)
-          .json({ message: "Курс с таким названием уже существует" });
-        return;
-      }
+  if (existingCourse) {
+    res.status(400).json({ message: "Курс с таким названием уже существует" });
+    return;
+  }
 
-      const courseId = await getNextCourseId();
+  let processedImage;
+  try {
+    processedImage = await processCourseImage(image);
+  } catch (err) {
+    res.status(400).json({ message: (err as Error).message });
+    return;
+  }
 
-      if (!fs.existsSync(image)) {
-        res.status(400).json({ message: "Файл изображения не найден" });
-        return;
-      }
+  const courseId = await getNextCourseId();
 
-      const imageName = `${moment().tz("Asia/Kemerovo").format("YYYY-MM-DDTHH-mm-ss")}.png`;
-      const uploadDir = path.join(__dirname, "..", "uploads");
+  const newCourse = new Course({
+    courseId,
+    title,
+    slug,
+    description,
+    price,
+    image: processedImage,
+    category,
+    level: level as CourseLevel,
+    author,
+    tags: tags || [],
+    isFavorited: isFavorite ?? false,
+  });
 
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir);
-      }
-
-      const imagePath = path.join(uploadDir, imageName);
-
-      const watermarkPath = path.join(
-        __dirname,
-        "..",
-        "assets",
-        "watermark.png",
-      );
-
-      const resizedWatermarkBuffer = await sharp(watermarkPath)
-        .resize({ width: 100 })
-        .toBuffer();
-
-      await sharp(image)
-        .resize(800)
-        .composite([{ input: resizedWatermarkBuffer, gravity: "southeast" }])
-        .toFile(imagePath);
-
-      const newCourse = new Course({
-        courseId,
-        title,
-        slug,
-        description,
-        price,
-        image: `/uploads/${imageName}`,
-        category,
-        level,
-        author,
-        tags: tags || [],
-        isFavorited: isFavorite !== undefined ? isFavorite : false,
-      });
-
-      await newCourse.save();
-      res.status(201).json(newCourse);
-    } catch (error) {
-      console.error("Ошибка при создании курса:", error);
-      res.status(500).json({ message: "Ошибка сервера" });
-    }
-  },
-);
+  await newCourse.save();
+  res.status(201).json(newCourse);
+});
 
 // Обновить курс по ID
-export const updateCourse = asyncHandler(
-  async (req: Request, res: Response) => {
-    const updatedData = { ...req.body };
+export const updateCourse = asyncHandler(async (req: Request, res: Response) => {
+  const updatedData = { ...req.body };
 
-    if (updatedData.title) {
-      updatedData.slug = slugify(updatedData.title, {
-        lower: true,
-        strict: true,
-      });
-    }
+  if (updatedData.title) {
+    updatedData.slug = slugify(updatedData.title, {
+      lower: true,
+      strict: true,
+    });
+  }
 
-    const updatedCourse = await Course.findOneAndUpdate(
-      { courseId: req.params.id },
-      updatedData,
-      { new: true, runValidators: true },
-    );
+  const updatedCourse = await Course.findOneAndUpdate({ courseId: req.params.id }, updatedData, {
+    new: true,
+    runValidators: true,
+  });
 
-    if (!updatedCourse) {
-      res.status(404).json({ message: "Курс не найден" });
-      return;
-    }
+  if (!updatedCourse) {
+    res.status(404).json({ message: "Курс не найден" });
+    return;
+  }
 
-    res.json(updatedCourse);
-  },
-);
+  res.json(updatedCourse);
+});
 
 // Удалить курс по ID
-export const deleteCourse = asyncHandler(
-  async (req: Request, res: Response) => {
-    try {
-      const course = await Course.findOneAndDelete({ courseId: req.params.id });
+export const deleteCourse = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const course = await Course.findOneAndDelete({ courseId: req.params.id });
 
-      if (!course) {
-        res.status(404).json({ message: "Курс не найден" });
-        return;
-      }
-
-      const imagePath = path.join(
-        __dirname,
-        "..",
-        "uploads",
-        path.basename(course.image),
-      );
-
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
-
-      res.json({ message: "Курс успешно удален" });
-    } catch (error) {
-      console.error("Ошибка при удалении курса:", error);
-      res.status(500).json({ message: "Ошибка сервера" });
-    }
-  },
-);
-
-// Добавить курс в избранное
-export const addToFavorites = asyncHandler(
-  async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-
-    console.log(`Запрос на добавление курса в избранное с ID: ${id}`);
-
-    const course = await Course.findOne({ courseId: id });
     if (!course) {
-      console.log("Курс не найден");
       res.status(404).json({ message: "Курс не найден" });
       return;
     }
 
-    course.isFavorited = true;
-    await course.save();
+    const imagePath = path.join(__dirname, "..", "uploads", path.basename(course.image));
 
-    console.log("Курс добавлен в избранное:", course);
-    res.json({ message: "Курс добавлен в избранное", course });
-  },
-);
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+    }
+
+    res.json({ message: "Курс успешно удален" });
+  } catch (error) {
+    console.error("Ошибка при удалении курса:", error);
+    res.status(500).json({ message: "Ошибка сервера" });
+  }
+});
+
+// Добавить курс в избранное
+export const addToFavorites = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  console.log(`Запрос на добавление курса в избранное с ID: ${id}`);
+
+  const course = await Course.findOne({ courseId: id });
+  if (!course) {
+    console.log("Курс не найден");
+    res.status(404).json({ message: "Курс не найден" });
+    return;
+  }
+
+  course.isFavorited = true;
+  await course.save();
+
+  console.log("Курс добавлен в избранное:", course);
+  res.json({ message: "Курс добавлен в избранное", course });
+});
 
 // Удалить курс из избранного
 export const removeFromFavorites = asyncHandler(

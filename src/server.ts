@@ -2,13 +2,7 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import connectDB from "./config/database";
-import authRoutes from "./routes/authRoutes";
-import userRoutes from "./routes/userRoutes";
-import courseRoutes from "./routes/courseRoutes";
-import tagRoutes from "./routes/tagRoutes";
-import lessonRoutes from "./routes/lessonRoutes";
-import commentRoutes from "./routes/commentRoutes";
-import enrollmentRoutes from "./routes/enrollmentRoutes";
+import apiRouter from "./config/routeConfig";
 
 dotenv.config();
 const app = express();
@@ -20,13 +14,7 @@ connectDB();
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/courses", courseRoutes);
-app.use("/tags", tagRoutes);
-app.use("/api/lessons", lessonRoutes);
-app.use("/api/comments", commentRoutes);
-app.use("/api/enrollments", enrollmentRoutes);
+app.use("/api", apiRouter);
 
 app.use((err: Error, _req: Request, res: Response) => {
   console.error(err.stack);
