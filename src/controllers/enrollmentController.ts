@@ -31,7 +31,6 @@ export const enrollInCourse: RequestHandler = async (
       return;
     }
 
-    // Создаём запись прогресса
     const progress = new Progress({
       userId,
       courseId,
