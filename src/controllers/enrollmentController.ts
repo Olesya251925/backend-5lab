@@ -4,7 +4,6 @@ import Lesson from "../models/lesson";
 import Course from "../models/course";
 import User from "../models/user";
 
-// 1. Запись на курс и создание записи прогресса
 export const enrollInCourse: RequestHandler = async (
   req: Request,
   res: Response,
@@ -45,7 +44,6 @@ export const enrollInCourse: RequestHandler = async (
   }
 };
 
-// 2. Получение прогресса по курсу
 export const getCourseProgress: RequestHandler = async (
   req: Request,
   res: Response,
@@ -76,7 +74,6 @@ export const getCourseProgress: RequestHandler = async (
   }
 };
 
-// 3. Подсчёт студентов на курсе
 export const countCourseEnrollments: RequestHandler = async (
   req: Request,
   res: Response,
@@ -91,7 +88,6 @@ export const countCourseEnrollments: RequestHandler = async (
   }
 };
 
-// 4. Отмена завершения урока и пересчёт прогресса
 export const cancelLessonCompletion: RequestHandler = async (
   req: Request,
   res: Response,
@@ -131,7 +127,6 @@ export const cancelLessonCompletion: RequestHandler = async (
   }
 };
 
-// 5. Завершение урока
 export const completeLesson: RequestHandler = async (
   req: Request,
   res: Response,

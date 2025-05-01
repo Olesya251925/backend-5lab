@@ -22,7 +22,7 @@ export const getLessonById = async (req: Request, res: Response) => {
 
     if (!lesson) return res.status(404).json({ error: "Урок не найден" });
 
-    const courses = await Course.find({ courseId: { $in: lesson.courseId } });
+    const courses = await Course.find({ courseId: { $in: lesson.courseIds } });
 
     res.json({
       ...lesson.toObject(),
@@ -38,8 +38,8 @@ export const getLessonById = async (req: Request, res: Response) => {
   }
 };
 
-const validateCourseIdArray = (courseId: number[]): boolean => {
-  return Array.isArray(courseId);
+const validateCourseIdsArray = (courseIds: number[]): boolean => {
+  return Array.isArray(courseIds) && courseIds.every((id) => typeof id === "number");
 };
 
 const findMissingCourses = async (courseId: number[]): Promise<number[]> => {
@@ -66,18 +66,18 @@ const generateNewId = async (): Promise<number> => {
   }
 };
 
-// Создать новый урок
+// Создание нового урока
 export const createLesson = async (req: Request, res: Response) => {
   try {
-    const { title, content, videoUrl, courseId, order } = req.body;
+    const { title, content, videoUrl, courseIds, order } = req.body;
 
-    // Валидация courseId
-    if (!validateCourseIdArray(courseId)) {
-      return res.status(400).json({ error: "courseId должен быть массивом чисел" });
+    // Валидация courseIds
+    if (!validateCourseIdsArray(courseIds)) {
+      return res.status(400).json({ error: "courseIds должен быть массивом чисел" });
     }
 
     // Поиск отсутствующих курсов
-    const missingCourseIds = await findMissingCourses(courseId);
+    const missingCourseIds = await findMissingCourses(courseIds);
 
     if (missingCourseIds.length > 0) {
       return res.status(400).json({
@@ -94,7 +94,7 @@ export const createLesson = async (req: Request, res: Response) => {
       title,
       content,
       videoUrl,
-      courseId,
+      courseIds, // Используем courseIds, а не courseId
       order,
     });
 
@@ -111,16 +111,16 @@ export const createLesson = async (req: Request, res: Response) => {
 export const updateLesson = async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.id);
-    const { courseId, ...restBody } = req.body;
+    const { courseIds, ...restBody } = req.body;
 
-    if (courseId !== undefined) {
-      if (!Array.isArray(courseId)) {
-        return res.status(400).json({ error: "courseId должен быть массивом чисел" });
+    if (courseIds !== undefined) {
+      if (!Array.isArray(courseIds)) {
+        return res.status(400).json({ error: "courseIds должен быть массивом чисел" }); // Используем множественное число
       }
 
-      const foundCourses = await Course.find({ courseId: { $in: courseId } });
+      const foundCourses = await Course.find({ courseId: { $in: courseIds } });
       const foundCourseIds = foundCourses.map((c) => c.courseId);
-      const missingCourseIds = courseId.filter((id: number) => !foundCourseIds.includes(id));
+      const missingCourseIds = courseIds.filter((id: number) => !foundCourseIds.includes(id));
 
       if (missingCourseIds.length > 0) {
         return res.status(400).json({
@@ -131,7 +131,7 @@ export const updateLesson = async (req: Request, res: Response) => {
 
     const updatedLesson = await Lesson.findOneAndUpdate(
       { id: lessonId },
-      { ...restBody, ...(courseId !== undefined && { courseId }) },
+      { ...restBody, ...(courseIds !== undefined && { courseIds: courseIds }) }, // Заменили courseId на courseIds
       { new: true },
     );
 

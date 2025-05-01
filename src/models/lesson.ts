@@ -5,7 +5,7 @@ export interface ILesson extends Document {
   title: string;
   content?: string;
   videoUrl?: string;
-  courseId: number[];
+  courseIds: number[];
   order?: number;
   createdAt: Date;
 }
@@ -16,7 +16,7 @@ const LessonSchema: Schema = new Schema(
     title: { type: String, required: true },
     content: { type: String },
     videoUrl: { type: String },
-    courseId: { type: [Number], required: true },
+    courseIds: { type: [Number], required: true },
     order: { type: Number },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
