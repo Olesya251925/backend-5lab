@@ -1,6 +1,6 @@
 import { Schema, model, Document } from "mongoose";
 
-interface IProgress extends Document {
+export interface IProgress extends Document {
   userId: string;
   courseId: string;
   lessonsCompleted: number[];
