@@ -94,7 +94,7 @@ export const createLesson = async (req: Request, res: Response) => {
       title,
       content,
       videoUrl,
-      courseIds, // Используем courseIds, а не courseId
+      courseIds,
       order,
     });
 
@@ -115,7 +115,7 @@ export const updateLesson = async (req: Request, res: Response) => {
 
     if (courseIds !== undefined) {
       if (!Array.isArray(courseIds)) {
-        return res.status(400).json({ error: "courseIds должен быть массивом чисел" }); // Используем множественное число
+        return res.status(400).json({ error: "courseIds должен быть массивом чисел" });
       }
 
       const foundCourses = await Course.find({ courseId: { $in: courseIds } });
@@ -131,7 +131,7 @@ export const updateLesson = async (req: Request, res: Response) => {
 
     const updatedLesson = await Lesson.findOneAndUpdate(
       { id: lessonId },
-      { ...restBody, ...(courseIds !== undefined && { courseIds: courseIds }) }, // Заменили courseId на courseIds
+      { ...restBody, ...(courseIds !== undefined && { courseIds: courseIds }) },
       { new: true },
     );
 

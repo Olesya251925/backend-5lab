@@ -58,15 +58,12 @@ export const getCourseProgress: RequestHandler = async (
       return;
     }
 
-    const lessons = await Lesson.find({ courseId });
+    const lessons = await Lesson.find({ courseIds: courseId });
 
     const totalLessons = lessons.length;
     const completedLessons = progress.lessonsCompleted.length;
     const progressPercentage =
       totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
-
-    progress.progressPercentage = progressPercentage;
-    await progress.save();
 
     res.json({ progressPercentage });
   } catch (error) {
@@ -112,7 +109,7 @@ export const cancelLessonCompletion: RequestHandler = async (
       (lesson) => lesson !== Number(lessonId),
     );
 
-    const lessons = await Lesson.find({ courseId });
+    const lessons = await Lesson.find({ courseIds: courseId });
     const totalLessons = lessons.length;
     const completedLessons = progress.lessonsCompleted.length;
     const progressPercentage =
@@ -142,7 +139,7 @@ export const completeLesson: RequestHandler = async (
       return;
     }
 
-    const lessonsInCourse = await Lesson.find({ courseId });
+    const lessonsInCourse = await Lesson.find({ courseIds: courseId });
     const lessonIds = lessonsInCourse.map((l) => l.id);
 
     if (!lessonIds.includes(lessonId)) {
