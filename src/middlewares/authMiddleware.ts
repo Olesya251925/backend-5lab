@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import type { AuthRequest } from "../types/auth";
-import { DecodedToken } from "../types/decodedToken";
+import { DecodedToken } from "../types/token";
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {

@@ -5,7 +5,7 @@ import Course from "../models/course";
 import { getNextCourseId } from "../models/utils";
 import fs from "fs";
 import path from "path";
-import Tag from "../models/tagModel";
+import Tag from "../models/tag";
 import { validateRequiredCourseFields } from "../utils/validateCourse";
 import { processCourseImage } from "../utils/processImage";
 import { CourseLevel } from "../types/course";

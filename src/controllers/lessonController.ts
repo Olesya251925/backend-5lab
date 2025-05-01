@@ -38,20 +38,46 @@ export const getLessonById = async (req: Request, res: Response) => {
   }
 };
 
+const validateCourseIdArray = (courseId: number[]): boolean => {
+  return Array.isArray(courseId);
+};
+
+const findMissingCourses = async (courseId: number[]): Promise<number[]> => {
+  const foundCourses = await Course.find({ courseId: { $in: courseId } });
+  const foundCourseIds = foundCourses.map((course) => course.courseId);
+  return courseId.filter((id) => !foundCourseIds.includes(id));
+};
+
+const generateNewId = async (): Promise<number> => {
+  const existingLessons = await Lesson.find();
+  const existingIds = existingLessons.map((lesson) => lesson.id);
+  const maxId = Math.max(...existingIds, 0);
+  const freeId = existingIds.find((id) => !existingIds.includes(id)) || maxId + 1;
+
+  if (freeId) {
+    return freeId;
+  } else {
+    const counter = await Counter.findOneAndUpdate(
+      { _id: "lessonId" },
+      { $inc: { sequenceValue: 1 } },
+      { new: true, upsert: true },
+    );
+    return counter?.sequenceValue;
+  }
+};
+
 // Создать новый урок
 export const createLesson = async (req: Request, res: Response) => {
   try {
     const { title, content, videoUrl, courseId, order } = req.body;
 
-    if (!Array.isArray(courseId)) {
+    // Валидация courseId
+    if (!validateCourseIdArray(courseId)) {
       return res.status(400).json({ error: "courseId должен быть массивом чисел" });
     }
 
-    const foundCourses = await Course.find({ courseId: { $in: courseId } });
-
-    const foundCourseIds = foundCourses.map((course) => course.courseId);
-
-    const missingCourseIds = courseId.filter((id: number) => !foundCourseIds.includes(id));
+    // Поиск отсутствующих курсов
+    const missingCourseIds = await findMissingCourses(courseId);
 
     if (missingCourseIds.length > 0) {
       return res.status(400).json({
@@ -59,23 +85,10 @@ export const createLesson = async (req: Request, res: Response) => {
       });
     }
 
-    let newId;
-    const existingLessons = await Lesson.find();
-    const existingIds = existingLessons.map((lesson) => lesson.id);
-    const maxId = Math.max(...existingIds, 0);
-    const freeId = existingIds.find((id) => !existingIds.includes(id)) || maxId + 1;
+    // Генерация нового ID для урока
+    const newId = await generateNewId();
 
-    if (freeId) {
-      newId = freeId;
-    } else {
-      const counter = await Counter.findOneAndUpdate(
-        { _id: "lessonId" },
-        { $inc: { sequenceValue: 1 } },
-        { new: true, upsert: true },
-      );
-      newId = counter?.sequenceValue;
-    }
-
+    // Создание нового урока
     const newLesson = new Lesson({
       id: newId,
       title,
@@ -85,6 +98,7 @@ export const createLesson = async (req: Request, res: Response) => {
       order,
     });
 
+    // Сохранение нового урока
     await newLesson.save();
     res.status(201).json(newLesson);
   } catch (error) {
