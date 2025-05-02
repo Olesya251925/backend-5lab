@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import asyncHandler from "express-async-handler";
 import {
   getCommentsByLessonId,
@@ -6,19 +6,11 @@ import {
   updateComment,
   deleteComment,
 } from "../controllers/commentController";
+import { AsyncRequestHandler } from "../types/comment";
 
 const router = express.Router();
 
-type AsyncRequestHandler = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => Promise<void>;
-
-router.get(
-  "/:lessonId",
-  asyncHandler(getCommentsByLessonId as AsyncRequestHandler),
-);
+router.get("/:lessonId", asyncHandler(getCommentsByLessonId as AsyncRequestHandler));
 
 router.post("/", asyncHandler(createComment as AsyncRequestHandler));
 

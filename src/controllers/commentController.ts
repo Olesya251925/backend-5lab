@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Comment from "../models/comment";
 import User from "../models/user";
 import Lesson from "../models/lesson";
+import { ICommentResponse } from "../types/comment";
 
 // Получить все комментарии к уроку
 export const getCommentsByLessonId = async (req: Request, res: Response): Promise<void> => {
@@ -17,7 +18,7 @@ export const getCommentsByLessonId = async (req: Request, res: Response): Promis
       return;
     }
 
-    const responseComments = await Promise.all(
+    const responseComments: ICommentResponse[] = await Promise.all(
       comments.map(async (comment) => {
         const user = await User.findOne({ id: comment.user });
 

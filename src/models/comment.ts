@@ -1,11 +1,5 @@
-import mongoose, { Schema, Document } from "mongoose";
-
-export interface IComment extends Document {
-  id: number;
-  user: number;
-  lesson: number;
-  text: string;
-}
+import mongoose, { Schema } from "mongoose";
+import { IComment } from "../types/comment";
 
 const CommentSchema: Schema = new Schema(
   {
