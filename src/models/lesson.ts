@@ -1,14 +1,5 @@
-import mongoose, { Schema, Document } from "mongoose";
-
-export interface ILesson extends Document {
-  id: number;
-  title: string;
-  content?: string;
-  videoUrl?: string;
-  courseIds: number[];
-  order?: number;
-  createdAt: Date;
-}
+import mongoose, { Schema } from "mongoose";
+import { ILesson } from "../types/lesson";
 
 const LessonSchema: Schema = new Schema(
   {

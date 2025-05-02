@@ -2,6 +2,12 @@ import { Request, Response } from "express";
 import Lesson from "../models/lesson";
 import Counter from "../models/counter";
 import Course from "../models/course";
+import {
+  ILessonResponse,
+  ILessonCreateRequest,
+  ILessonUpdateRequest,
+  ICourseInfo,
+} from "../types/lesson";
 
 // Получить все уроки
 export const getLessons = async (req: Request, res: Response) => {
@@ -24,14 +30,18 @@ export const getLessonById = async (req: Request, res: Response) => {
 
     const courses = await Course.find({ courseId: { $in: lesson.courseIds } });
 
-    res.json({
+    const response: ILessonResponse = {
       ...lesson.toObject(),
-      courses: courses.map((course) => ({
-        courseId: course.courseId,
-        title: course.title,
-        description: course.description,
-      })),
-    });
+      courses: courses.map(
+        (course): ICourseInfo => ({
+          courseId: course.courseId,
+          title: course.title,
+          description: course.description,
+        }),
+      ),
+    };
+
+    res.json(response);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Ошибка при получении урока" });
@@ -42,10 +52,10 @@ const validateCourseIdsArray = (courseIds: number[]): boolean => {
   return Array.isArray(courseIds) && courseIds.every((id) => typeof id === "number");
 };
 
-const findMissingCourses = async (courseId: number[]): Promise<number[]> => {
-  const foundCourses = await Course.find({ courseId: { $in: courseId } });
+const findMissingCourses = async (courseIds: number[]): Promise<number[]> => {
+  const foundCourses = await Course.find({ courseId: { $in: courseIds } });
   const foundCourseIds = foundCourses.map((course) => course.courseId);
-  return courseId.filter((id) => !foundCourseIds.includes(id));
+  return courseIds.filter((id) => !foundCourseIds.includes(id));
 };
 
 const generateNewId = async (): Promise<number> => {
@@ -62,33 +72,27 @@ const generateNewId = async (): Promise<number> => {
       { $inc: { sequenceValue: 1 } },
       { new: true, upsert: true },
     );
-    return counter?.sequenceValue;
+    return counter?.sequenceValue || maxId + 1;
   }
 };
 
 // Создание нового урока
 export const createLesson = async (req: Request, res: Response) => {
   try {
-    const { title, content, videoUrl, courseIds, order } = req.body;
+    const { title, content, videoUrl, courseIds, order }: ILessonCreateRequest = req.body;
 
-    // Валидация courseIds
     if (!validateCourseIdsArray(courseIds)) {
       return res.status(400).json({ error: "courseIds должен быть массивом чисел" });
     }
 
-    // Поиск отсутствующих курсов
     const missingCourseIds = await findMissingCourses(courseIds);
-
     if (missingCourseIds.length > 0) {
       return res.status(400).json({
         error: `Курсы с courseId [${missingCourseIds.join(", ")}] не найдены в коллекции courses.`,
       });
     }
 
-    // Генерация нового ID для урока
     const newId = await generateNewId();
-
-    // Создание нового урока
     const newLesson = new Lesson({
       id: newId,
       title,
@@ -98,7 +102,6 @@ export const createLesson = async (req: Request, res: Response) => {
       order,
     });
 
-    // Сохранение нового урока
     await newLesson.save();
     res.status(201).json(newLesson);
   } catch (error) {
@@ -111,17 +114,14 @@ export const createLesson = async (req: Request, res: Response) => {
 export const updateLesson = async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.id);
-    const { courseIds, ...restBody } = req.body;
+    const { courseIds, ...restBody }: ILessonUpdateRequest = req.body;
 
     if (courseIds !== undefined) {
       if (!Array.isArray(courseIds)) {
         return res.status(400).json({ error: "courseIds должен быть массивом чисел" });
       }
 
-      const foundCourses = await Course.find({ courseId: { $in: courseIds } });
-      const foundCourseIds = foundCourses.map((c) => c.courseId);
-      const missingCourseIds = courseIds.filter((id: number) => !foundCourseIds.includes(id));
-
+      const missingCourseIds = await findMissingCourses(courseIds);
       if (missingCourseIds.length > 0) {
         return res.status(400).json({
           error: `Курсы с courseId [${missingCourseIds.join(", ")}] не найдены в коллекции courses.`,
@@ -131,7 +131,7 @@ export const updateLesson = async (req: Request, res: Response) => {
 
     const updatedLesson = await Lesson.findOneAndUpdate(
       { id: lessonId },
-      { ...restBody, ...(courseIds !== undefined && { courseIds: courseIds }) },
+      { ...restBody, ...(courseIds !== undefined && { courseIds }) },
       { new: true },
     );
 
