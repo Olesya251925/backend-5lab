@@ -1,4 +1,3 @@
-// types/lesson.ts
 import { Document } from "mongoose";
 
 export interface ICourseInfo {
