@@ -32,7 +32,7 @@ services:
     networks:
       - app-network
 
-  courses-service:
+  course-service:
     build: ./services/course-service
     ports:
       - "3002:3002"
@@ -43,7 +43,7 @@ services:
     networks:
       - app-network
 
-  tags-service:
+  tag-service:
     build: ./services/tag-service
     ports:
       - "3003:3003"
@@ -53,7 +53,7 @@ services:
     networks:
       - app-network
 
-  lessons-service:
+  lesson-service:
     build: ./services/lesson-service
     ports:
       - "3004:3004"
@@ -63,7 +63,7 @@ services:
     networks:
       - app-network
 
-  comments-service:
+  comment-service:
     build: ./services/comment-service
     ports:
       - "3005:3005"
