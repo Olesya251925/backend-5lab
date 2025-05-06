@@ -1,0 +1,95 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.9-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - app-network
+
+  api-gateway:
+    build: ./gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - rabbitmq
+      - user-service
+      - courses-service
+      - tags-service
+      - lessons-service
+      - comments-service
+      - enrollment-service
+    networks:
+      - app-network
+
+  user-service:
+    build: ./user-service
+    ports:
+      - "3001:3001"
+    depends_on:
+      - rabbitmq
+      - status-service
+    networks:
+      - app-network
+
+  courses-service:
+    build: ./courses-service
+    ports:
+      - "3002:3002"
+    depends_on:
+      - rabbitmq
+      - status-service
+      - tags-service
+    networks:
+      - app-network
+
+  tags-service:
+    build: ./tag-service
+    ports:
+      - "3003:3003"
+    depends_on:
+      - rabbitmq
+      - status-service
+    networks:
+      - app-network
+
+  lessons-service:
+    build: ./lessons-service
+    ports:
+      - "3004:3004"
+    depends_on:
+      - rabbitmq
+      - status-service
+    networks:
+      - app-network
+
+  comments-service:
+    build: ./comments-service
+    ports:
+      - "3005:3005"
+    depends_on:
+      - rabbitmq
+      - status-service
+    networks:
+      - app-network
+
+  enrollment-service:
+    build: ./enrollment-service
+    ports:
+      - "3006:3006"
+    depends_on:
+      - rabbitmq
+      - status-service
+    networks:
+      - app-network
+
+  status-service:
+    build: ./status-service
+    ports:
+      - "3007:3007"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
