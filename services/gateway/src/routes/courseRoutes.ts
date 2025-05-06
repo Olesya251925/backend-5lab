@@ -3,6 +3,9 @@ import { v4 as uuidv4 } from "uuid";
 import { setStatusRequest } from "../services/statusService";
 import { sendMessageToQueue } from "../services/queueService";
 import config from "../utils/config";
+import { ParsedQs } from "qs";
+
+type QueryValue = string | string[] | ParsedQs | ParsedQs[] | undefined;
 
 const coursesRoute = express.Router();
 
@@ -22,7 +25,7 @@ coursesRoute.all("/courses*", async (req: Request, res: Response) => {
       path,
       method,
       body: req.body,
-      query: req.query,
+      query: req.query as { [key: string]: QueryValue },
       params: req.params,
     });
 

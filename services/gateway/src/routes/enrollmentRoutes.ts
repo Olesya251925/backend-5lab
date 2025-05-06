@@ -3,12 +3,15 @@ import { v4 as uuidv4 } from "uuid";
 import { setStatusRequest } from "../services/statusService";
 import { sendMessageToQueue } from "../services/queueService";
 import config from "../utils/config";
+import { ParsedQs } from "qs";
+
+type QueryValue = string | string[] | ParsedQs | ParsedQs[] | undefined;
 
 const enrollmentRoute = express.Router();
 
-enrollmentRoute.all("/enrollment*", async (req: Request, res: Response) => {
+enrollmentRoute.all("/enrollments*", async (req: Request, res: Response) => {
   const requestId = uuidv4();
-  const path = req.originalUrl.replace("/api/enrollment", "");
+  const path = req.originalUrl.replace("/api/enrollments", "");
   const method = req.method.toLowerCase();
 
   try {
@@ -22,7 +25,7 @@ enrollmentRoute.all("/enrollment*", async (req: Request, res: Response) => {
       path,
       method,
       body: req.body,
-      query: req.query,
+      query: req.query as { [key: string]: QueryValue },
       params: req.params,
     });
 
