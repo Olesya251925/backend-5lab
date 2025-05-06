@@ -8,22 +8,22 @@ services:
       - app-network
 
   api-gateway:
-    build: ./gateway
+    build: ./services/gateway
     ports:
       - "3000:3000"
     depends_on:
       - rabbitmq
       - user-service
-      - courses-service
-      - tags-service
-      - lessons-service
-      - comments-service
+      - course-service
+      - tag-service
+      - lesson-service
+      - comment-service
       - enrollment-service
     networks:
       - app-network
 
   user-service:
-    build: ./user-service
+    build: ./services/user-service
     ports:
       - "3001:3001"
     depends_on:
@@ -33,18 +33,18 @@ services:
       - app-network
 
   courses-service:
-    build: ./courses-service
+    build: ./services/course-service
     ports:
       - "3002:3002"
     depends_on:
       - rabbitmq
       - status-service
-      - tags-service
+      - tag-service
     networks:
       - app-network
 
   tags-service:
-    build: ./tag-service
+    build: ./services/tag-service
     ports:
       - "3003:3003"
     depends_on:
@@ -54,7 +54,7 @@ services:
       - app-network
 
   lessons-service:
-    build: ./lessons-service
+    build: ./services/lesson-service
     ports:
       - "3004:3004"
     depends_on:
@@ -64,7 +64,7 @@ services:
       - app-network
 
   comments-service:
-    build: ./comments-service
+    build: ./services/comment-service
     ports:
       - "3005:3005"
     depends_on:
@@ -74,7 +74,7 @@ services:
       - app-network
 
   enrollment-service:
-    build: ./enrollment-service
+    build: ./services/enrollment-service
     ports:
       - "3006:3006"
     depends_on:
@@ -84,7 +84,7 @@ services:
       - app-network
 
   status-service:
-    build: ./status-service
+    build: ./services/status-service
     ports:
       - "3007:3007"
     networks:
