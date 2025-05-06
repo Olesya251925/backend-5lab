@@ -5,7 +5,7 @@ import Course from "../models/course";
 import { getNextCourseId } from "../models/utils";
 import fs from "fs";
 import path from "path";
-import Tag from "../models/tag";
+import { Tag } from "../models/tag";
 import { validateRequiredCourseFields } from "../utils/validateCourse";
 import { processCourseImage } from "../utils/processImage";
 import { CourseLevel } from "../types/course";
@@ -222,10 +222,16 @@ export const getCourseWithTags = asyncHandler(
 
     console.log("Полученные теги:");
     tags.forEach((tag) => {
-      console.log(`TagId: ${tag.tagId}, Name: ${tag.name}`);
+      console.log(`- ${tag.name} (ID: ${tag.tagId})`);
     });
 
-    const courseWithTags = { ...course.toObject(), tags };
+    const courseWithTags = {
+      ...course.toObject(),
+      tags: tags.map((tag) => ({
+        tagId: tag.tagId,
+        name: tag.name,
+      })),
+    };
 
     res.json(courseWithTags);
   },

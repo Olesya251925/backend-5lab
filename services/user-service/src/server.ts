@@ -24,7 +24,7 @@ async function connectRabbitMQ() {
       connection = await amqp.connect(config.rabbitMQUrl);
       const channel = await connection.createChannel();
 
-      await channel.assertQueue(userQueue, { durable: false });
+      await channel.assertQueue(userQueue, { durable: true });
 
       console.log("[*] Ожидает сообщения. Для выхода нажать CTRL+C", userQueue);
 

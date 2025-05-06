@@ -1,4 +1,13 @@
 services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
   rabbitmq:
     image: rabbitmq:3.9-management
     ports:
@@ -29,6 +38,9 @@ services:
     depends_on:
       - rabbitmq
       - status-service
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/user-service
     networks:
       - app-network
 
@@ -40,6 +52,9 @@ services:
       - rabbitmq
       - status-service
       - tag-service
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/course-service
     networks:
       - app-network
 
@@ -50,6 +65,9 @@ services:
     depends_on:
       - rabbitmq
       - status-service
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/tag-service
     networks:
       - app-network
 
@@ -60,6 +78,9 @@ services:
     depends_on:
       - rabbitmq
       - status-service
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/lesson-service
     networks:
       - app-network
 
@@ -70,6 +91,9 @@ services:
     depends_on:
       - rabbitmq
       - status-service
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/comment-service
     networks:
       - app-network
 
@@ -80,6 +104,9 @@ services:
     depends_on:
       - rabbitmq
       - status-service
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/enrollment-service
     networks:
       - app-network
 
@@ -93,3 +120,6 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  mongodb_data:

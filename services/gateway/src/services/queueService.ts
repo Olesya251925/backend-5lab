@@ -20,22 +20,22 @@ const getConnection = async (): Promise<ChannelModel> => {
     try {
       connection = await amqp.connect(config.rabbitMQUrl);
       if (connection) {
-        connection.on('error', (err: Error) => {
-          console.error('Ошибка соединения с RabbitMQ:', err);
+        connection.on("error", (err: Error) => {
+          console.error("Ошибка соединения с RabbitMQ:", err);
           connection = null;
         });
-        connection.on('close', () => {
-          console.log('Соединение с RabbitMQ закрыто');
+        connection.on("close", () => {
+          console.log("Соединение с RabbitMQ закрыто");
           connection = null;
         });
       }
     } catch (error) {
-      console.error('Ошибка при подключении к RabbitMQ:', error);
+      console.error("Ошибка при подключении к RabbitMQ:", error);
       throw error;
     }
   }
   if (!connection) {
-    throw new Error('Не удалось установить соединение с RabbitMQ');
+    throw new Error("Не удалось установить соединение с RabbitMQ");
   }
   return connection;
 };
@@ -50,7 +50,7 @@ export const sendMessageToQueue = async (
     channel = await conn.createChannel();
 
     if (!channel) {
-      throw new Error('Не удалось создать канал');
+      throw new Error("Не удалось создать канал");
     }
 
     await channel.assertQueue(queueName, {
@@ -62,25 +62,43 @@ export const sendMessageToQueue = async (
     });
 
     if (!success) {
-      throw new Error('Не удалось отправить сообщение в очередь');
+      throw new Error("Не удалось отправить сообщение в очередь");
     }
 
-    // Ждем подтверждения доставки
+    console.log(`Сообщение отправлено в очередь ${queueName}`);
+
     await new Promise<void>((resolve, reject) => {
       if (!channel) {
-        reject(new Error('Канал не создан'));
+        reject(new Error("Канал не создан"));
         return;
       }
-      
-      channel.once('drain', () => {
-        resolve();
+      const confirmPromise = new Promise<void>((resolveConfirm) => {
+        const checkQueue = async () => {
+          try {
+            const queueInfo = await channel!.checkQueue(queueName);
+            if (queueInfo.messageCount > 0) {
+              console.log(`Сообщение получено в очереди ${queueName}`);
+              resolveConfirm();
+            } else {
+              setTimeout(checkQueue, 1000);
+            }
+          } catch (error) {
+            console.error("Ошибка при проверке очереди:", error);
+            setTimeout(checkQueue, 1000);
+          }
+        };
+        checkQueue();
       });
 
-      setTimeout(() => {
-        reject(new Error('Таймаут ожидания подтверждения доставки'));
-      }, 5000);
+      const timeoutPromise = new Promise<void>((_, rejectTimeout) => {
+        setTimeout(() => {
+          rejectTimeout(new Error("Таймаут ожидания подтверждения доставки"));
+        }, 15000);
+      });
+      Promise.race([confirmPromise, timeoutPromise])
+        .then(() => resolve())
+        .catch((error) => reject(error));
     });
-
   } catch (error) {
     console.error("Ошибка при отправке сообщения в очередь:", error);
     throw error;
@@ -89,4 +107,4 @@ export const sendMessageToQueue = async (
       await channel.close();
     }
   }
-}; 
+};
