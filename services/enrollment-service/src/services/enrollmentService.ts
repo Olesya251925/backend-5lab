@@ -1,196 +1,132 @@
-import Enrollment, { IEnrollment } from '../models/Enrollment';
-import axios from 'axios';
-import config from '../utils/config';
+import Progress, { IProgress } from "../models/enrollment";
+import { rabbitMQService } from "./rabbitmq";
+import { config } from "../config";
 
-const calculateCourseProgress = async (
-	userId: string,
-	courseId: string,
+export const enrollUserInCourse = async (userId: string, courseId: string): Promise<IProgress> => {
+  try {
+    const existingEnrollment = await Progress.findOne({ userId, courseId });
+    if (existingEnrollment) {
+      throw new Error("Пользователь уже записан на этот курс");
+    }
+
+    const enrollment = await Progress.create({
+      userId,
+      courseId,
+      completedLessons: [],
+      enrollmentDate: new Date(),
+      lastActivityDate: new Date(),
+    });
+
+    // Отправка уведомления о новой записи
+    await rabbitMQService.publishMessage(config.queues.enrollmentUpdates, {
+      type: "NEW_ENROLLMENT",
+      data: {
+        userId,
+        courseId,
+        enrollmentId: enrollment._id,
+        enrollmentDate: enrollment.enrollmentDate,
+      },
+    });
+
+    return enrollment;
+  } catch (error) {
+    console.error("Error in enrollUserInCourse:", error);
+    throw error;
+  }
+};
+
+export const getEnrollmentStatus = async (
+  userId: string,
+  courseId: string,
+): Promise<IProgress | null> => {
+  try {
+    return await Progress.findOne({ userId, courseId });
+  } catch (error) {
+    console.error("Error in getEnrollmentStatus:", error);
+    throw error;
+  }
+};
+
+export const calculateCourseProgress = async (
+  userId: string,
+  courseId: string,
 ): Promise<number> => {
-	try {
-		const enrollment = await Enrollment.findOne({ user: userId, course: courseId });
+  try {
+    const enrollment = await Progress.findOne({ userId, courseId });
+    if (!enrollment) {
+      throw new Error("Запись на курс не найдена");
+    }
 
-		if (!enrollment) {
-			return 0;
-		}
+    // TODO: Получить общее количество уроков в курсе через API курсов
+    const totalLessons = 10; // Временное решение
+    const completedLessons = enrollment.completedLessons.length;
 
-        const lessonRequest = await axios.get(`${config.lessonServiceUrl}/count/${courseId}`, {
-			validateStatus: function (status) {
-				return status >= 200 && status < 600;
-			},
-		});
-
-		const totalLessons = lessonRequest.data;
-		const completedLessonsCount = enrollment.lessonsCompleted.length;
-
-		if (totalLessons === 0) {
-			return 0;
-		}
-
-		const result = (completedLessonsCount / totalLessons) * 100;
-
-		return result;
-	} catch (error) {
-		console.error(error);
-		return 0;
-	}
+    return (completedLessons / totalLessons) * 100;
+  } catch (error) {
+    console.error("Error in calculateCourseProgress:", error);
+    throw error;
+  }
 };
 
-const enrollUserInCourse = async (userId: string, courseId: string): Promise<IEnrollment> => {
-	try {
-		const userRequest = await axios.get(`${config.userServiceUrl}/${userId}`, {
-			validateStatus: function (status) {
-				return status >= 200 && status < 600;
-			},
-		});
+export const completeLesson = async (userId: string, lessonId: string): Promise<IProgress> => {
+  try {
+    const enrollment = await Progress.findOne({ userId });
+    if (!enrollment) {
+      throw new Error("Запись на курс не найдена");
+    }
 
-		if (userRequest.status === 404) {
-			throw new Error('Пользователь не найден.');
-		}
+    if (!enrollment.completedLessons.includes(lessonId)) {
+      enrollment.completedLessons.push(lessonId);
+      enrollment.lastActivityDate = new Date();
+      await enrollment.save();
 
-		const courseRequest = await axios.get(`${config.courseServiceUrl}/${courseId}`, {
-			validateStatus: function (status) {
-				return status >= 200 && status < 600;
-			},
-		});
+      // Отправка уведомления о завершении урока
+      await rabbitMQService.publishMessage(config.queues.lessonUpdates, {
+        type: "LESSON_COMPLETED",
+        data: {
+          userId,
+          lessonId,
+          courseId: enrollment.courseId,
+          completionDate: enrollment.lastActivityDate,
+        },
+      });
+    }
 
-		if (courseRequest.status === 404) {
-			throw new Error('Курс не найден.');
-		}
-
-		const existingEnrollment = await Enrollment.findOne({ user: userId, course: courseId });
-		if (existingEnrollment) {
-			throw new Error('Пользователь уже записан на этот курс.');
-		}
-
-		const newEnrollment = new Enrollment({
-			user: userId,
-			course: courseId,
-		});
-
-		await newEnrollment.save();
-
-		return newEnrollment;
-	} catch (error) {
-		console.error(error);
-		throw error;
-	}
+    return enrollment;
+  } catch (error) {
+    console.error("Error in completeLesson:", error);
+    throw error;
+  }
 };
 
-const completeLesson = async (userId: string, lessonId: string): Promise<IEnrollment> => {
-	try {
-		const userRequest = await axios.get(`${config.userServiceUrl}/${userId}`, {
-			validateStatus: function (status) {
-				return status >= 200 && status < 600;
-			},
-		});
+export const uncompleteLesson = async (userId: string, lessonId: string): Promise<IProgress> => {
+  try {
+    const enrollment = await Progress.findOne({ userId });
+    if (!enrollment) {
+      throw new Error("Запись на курс не найдена");
+    }
 
-		if (userRequest.status === 404) {
-			throw new Error('Пользователь не найден.');
-		}
+    const lessonIndex = enrollment.completedLessons.indexOf(lessonId);
+    if (lessonIndex !== -1) {
+      enrollment.completedLessons.splice(lessonIndex, 1);
+      enrollment.lastActivityDate = new Date();
+      await enrollment.save();
 
-		const lessonRequest = await axios.get(`${config.lessonServiceUrl}/${lessonId}`, {
-			validateStatus: function (status) {
-				return status >= 200 && status < 600;
-			},
-		});
+      // Отправка уведомления об отмене завершения урока
+      await rabbitMQService.publishMessage(config.queues.lessonUpdates, {
+        type: "LESSON_UNCOMPLETED",
+        data: {
+          userId,
+          lessonId,
+          courseId: enrollment.courseId,
+          uncompletionDate: enrollment.lastActivityDate,
+        },
+      });
+    }
 
-		if (lessonRequest.status === 404) {
-			throw new Error('Урок не найден');
-		}
-
-		const lesson = lessonRequest.data.lesson;
-
-		const enrollment = await Enrollment.findOne({ user: userId, course: lesson.course });
-		if (!enrollment) {
-			throw new Error('Пользователь не записан на курс');
-		}
-
-		if (enrollment.lessonsCompleted.includes(lessonId)) {
-			throw new Error('Урок уже выполнен');
-		}
-
-		enrollment.lessonsCompleted.push(lessonId);
-		await enrollment.save();
-
-		enrollment.progress = await calculateCourseProgress(userId, lesson.course);
-		await enrollment.save();
-
-		return enrollment;
-	} catch (error) {
-		console.error(error);
-		throw error;
-	}
-};
-
-const uncompleteLesson = async (userId: string, lessonId: string): Promise<IEnrollment> => {
-	try {
-		const userRequest = await axios.get(`${config.userServiceUrl}/${userId}`, {
-			validateStatus: function (status) {
-				return status >= 200 && status < 600;
-			},
-		});
-
-		if (userRequest.status === 404) {
-			throw new Error('Пользователь не найден.');
-		}
-
-		const lessonRequest = await axios.get(`${config.lessonServiceUrl}/${lessonId}`, {
-			validateStatus: function (status) {
-				return status >= 200 && status < 600;
-			},
-		});
-
-		if (lessonRequest.status === 404) {
-			throw new Error('Урок не найден');
-		}
-
-		const lesson = lessonRequest.data.lesson;
-
-		const enrollment = await Enrollment.findOne({ user: userId, course: lesson.course });
-		if (!enrollment) {
-			throw new Error('Пользователь не записан на этот курс.');
-		}
-
-		if (!enrollment.lessonsCompleted.includes(lessonId)) {
-			throw new Error('Урок не пройден.');
-		}
-
-		const lessonIndex = enrollment.lessonsCompleted.indexOf(lessonId);
-		enrollment.lessonsCompleted.splice(lessonIndex, 1);
-		await enrollment.save();
-
-		enrollment.progress = await calculateCourseProgress(userId, lesson.course);
-		await enrollment.save();
-
-		return enrollment;
-	} catch (error) {
-		console.error(error);
-		throw error;
-	}
-};
-
-const getEnrollmentStatus = async (
-	userId: string,
-	courseId: string,
-): Promise<IEnrollment | null> => {
-	try {
-		const enrollment = await Enrollment.findOne({ user: userId, course: courseId })
-
-		if (!enrollment) {
-			return null;
-		}
-		
-		return enrollment;
-	} catch (error) {
-		console.error(error);
-		throw error;
-	}
-};
-
-export {
-	enrollUserInCourse,
-	completeLesson,
-	uncompleteLesson,
-	getEnrollmentStatus,
-	calculateCourseProgress,
+    return enrollment;
+  } catch (error) {
+    console.error("Error in uncompleteLesson:", error);
+    throw error;
+  }
 };

@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import amqp from 'amqplib';
 import config from './utils/config';
 
 const app = express();
@@ -17,6 +18,42 @@ interface RequestStatuses {
 const requestStatuses: RequestStatuses = {};
 
 app.use(express.json());
+
+const connectToRabbitMQ = async () => {
+	try {
+		console.log('Attempting to connect to RabbitMQ...');
+		const connection = await amqp.connect(config.rabbitMQUrl);
+		const channel = await connection.createChannel();
+
+		// Создаем очередь для статусов
+		await channel.assertQueue('status_queue', {
+			durable: true
+		});
+
+		// Обработка сообщений из очереди
+		channel.consume('status_queue', (msg) => {
+			if (msg) {
+				const content = JSON.parse(msg.content.toString());
+				const { requestId, status, data, message, error } = content;
+				
+				requestStatuses[requestId] = {
+					status,
+					data,
+					message,
+					error
+				};
+
+				channel.ack(msg);
+			}
+		});
+
+		console.log('Successfully connected to RabbitMQ');
+	} catch (error) {
+		console.error('Error connecting to RabbitMQ:', error);
+		// Повторная попытка подключения через 5 секунд
+		setTimeout(connectToRabbitMQ, 5000);
+	}
+};
 
 app.post('/api/status/:requestId', (req: Request, res: Response) => {
 	const { requestId } = req.params;
@@ -40,6 +77,9 @@ app.get('/api/status/:requestId', (req: Request, res: Response) => {
 
 	res.status(200).json(requestStatuses[requestId]);
 });
+
+// Подключаемся к RabbitMQ при запуске сервиса
+connectToRabbitMQ();
 
 app.listen(port, () => {
 	console.log(`Status Service Прослушивает порт: ${port}`);

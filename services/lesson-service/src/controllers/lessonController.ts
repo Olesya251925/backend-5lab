@@ -28,7 +28,7 @@ export const getLessonById = async (req: Request, res: Response) => {
 
     if (!lesson) return res.status(404).json({ error: "Урок не найден" });
 
-    const courses = await Course.find({ courseId: { $in: lesson.courseIds } });
+    const courses = await Course.find({ courseId: { $in: lesson.courseIds.map(String) } });
 
     const response: ILessonResponse = {
       ...lesson.toObject(),
@@ -53,8 +53,8 @@ const validateCourseIdsArray = (courseIds: number[]): boolean => {
 };
 
 const findMissingCourses = async (courseIds: number[]): Promise<number[]> => {
-  const foundCourses = await Course.find({ courseId: { $in: courseIds } });
-  const foundCourseIds = foundCourses.map((course) => course.courseId);
+  const foundCourses = await Course.find({ courseId: { $in: courseIds.map(String) } });
+  const foundCourseIds = foundCourses.map((course) => parseInt(course.courseId));
   return courseIds.filter((id) => !foundCourseIds.includes(id));
 };
 

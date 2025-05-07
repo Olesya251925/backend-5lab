@@ -1,37 +1,32 @@
 import { Document } from "mongoose";
 
 export interface ICourseInfo {
-  courseId: number;
+  courseId: string;
   title: string;
-  description?: string;
+  description: string;
 }
 
-export interface ILesson extends Document {
+export interface ILesson {
   id: number;
   title: string;
-  content?: string;
+  content: string;
   videoUrl?: string;
   courseIds: number[];
-  order?: number;
-  createdAt: Date;
+  order: number;
 }
 
-export interface ILessonResponse {
-  id: number;
-  title: string;
-  content?: string;
-  videoUrl?: string;
+export interface ILessonDocument extends Omit<Document, 'id'>, ILesson {}
+
+export interface ILessonResponse extends ILesson {
   courses: ICourseInfo[];
-  order?: number;
-  createdAt: Date;
 }
 
 export interface ILessonCreateRequest {
   title: string;
-  content?: string;
+  content: string;
   videoUrl?: string;
   courseIds: number[];
-  order?: number;
+  order: number;
 }
 
 export interface ILessonUpdateRequest {

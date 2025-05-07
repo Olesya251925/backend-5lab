@@ -2,7 +2,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const config = {
-  port: process.env.PORT || 3005,
+  port: process.env.PORT || 3004,
   apiVer: "api",
   lessonServiceUrl: "http://lessons-service",
   userServiceUrl: "http://user-service:3001/api",

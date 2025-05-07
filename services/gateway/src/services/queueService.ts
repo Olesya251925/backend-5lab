@@ -1,4 +1,4 @@
-import amqp, { Connection, Channel } from "amqplib";
+import amqp, { Connection, Channel } from "amqplib/callback_api";
 import config from "../utils/config";
 import { ParsedQs } from "qs";
 
@@ -19,24 +19,39 @@ let isConnecting = false;
 
 const getConnection = async (): Promise<Connection> => {
   if (isConnecting) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     return getConnection();
   }
 
   if (!connection) {
     isConnecting = true;
     try {
-      connection = await amqp.connect(config.rabbitMQUrl);
-      connection.on("error", (err: Error) => {
-        console.error("Ошибка соединения с RabbitMQ:", err);
-        connection = null;
-        channel = null;
+      const conn = await new Promise<Connection>((resolve, reject) => {
+        amqp.connect(config.rabbitMQUrl, (err, conn) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(conn);
+          }
+        });
       });
-      connection.on("close", () => {
-        console.log("Соединение с RabbitMQ закрыто");
-        connection = null;
-        channel = null;
-      });
+
+      connection = conn;
+
+      if (connection) {
+        connection.on("error", (err: Error) => {
+          console.error("Ошибка соединения с RabbitMQ:", err);
+          connection = null;
+          channel = null;
+        });
+
+        connection.on("close", () => {
+          console.log("Соединение с RabbitMQ закрыто");
+          connection = null;
+          channel = null;
+          setTimeout(() => getConnection(), 5000);
+        });
+      }
     } catch (error) {
       console.error("Ошибка при подключении к RabbitMQ:", error);
       connection = null;
@@ -56,23 +71,42 @@ const getChannel = async (): Promise<Channel> => {
   if (!channel) {
     const conn = await getConnection();
     try {
-      channel = await conn.createChannel();
-      await channel.confirmSelect();
-      
-      channel.on("error", (err: Error) => {
-        console.error("Ошибка канала RabbitMQ:", err);
-        channel = null;
+      const ch = await new Promise<Channel>((resolve, reject) => {
+        conn.createChannel((err, ch) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(ch);
+          }
+        });
       });
-      
-      channel.on("close", () => {
-        console.log("Канал RabbitMQ закрыт");
-        channel = null;
-      });
+
+      channel = ch;
+
+      if (channel) {
+        // No need for confirmSelect in callback API as it's automatically handled
+        // by the sendToQueue method with the persistent flag
+
+        channel.on("error", (err: Error) => {
+          console.error("Ошибка канала RabbitMQ:", err);
+          channel = null;
+        });
+
+        channel.on("close", () => {
+          console.log("Канал RabbitMQ закрыт");
+          channel = null;
+          setTimeout(() => getChannel(), 5000);
+        });
+      }
     } catch (error) {
       console.error("Ошибка при создании канала:", error);
       channel = null;
       throw error;
     }
+  }
+
+  if (!channel) {
+    throw new Error("Не удалось создать канал RabbitMQ");
   }
   return channel;
 };
@@ -85,8 +119,14 @@ export const sendMessageToQueue = async (
   while (retries > 0) {
     try {
       const ch = await getChannel();
-      await ch.assertQueue(queueName, {
-        durable: true,
+      await new Promise<void>((resolve, reject) => {
+        ch.assertQueue(queueName, { durable: true }, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
       });
 
       return new Promise<void>((resolve, reject) => {
@@ -94,23 +134,27 @@ export const sendMessageToQueue = async (
           reject(new Error("Таймаут ожидания подтверждения доставки"));
         }, 15000);
 
-        ch.sendToQueue(
-          queueName,
-          Buffer.from(JSON.stringify(message)),
-          {
-            persistent: true,
-          },
-          (err: Error | null, ok: boolean) => {
-            clearTimeout(timeout);
-            if (err) {
-              console.error("Ошибка при отправке сообщения:", err);
-              reject(err);
-            } else {
-              console.log(`Сообщение отправлено в очередь ${queueName}`);
-              resolve();
-            }
-          }
-        );
+        const sent = ch.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), {
+          persistent: true,
+        });
+
+        if (!sent) {
+          clearTimeout(timeout);
+          reject(new Error("Очередь заполнена"));
+          return;
+        }
+
+        ch.once("drain", () => {
+          clearTimeout(timeout);
+          console.log(`Сообщение отправлено в очередь ${queueName}`);
+          resolve();
+        });
+
+        ch.once("error", (err: Error) => {
+          clearTimeout(timeout);
+          console.error("Ошибка при отправке сообщения:", err);
+          reject(err);
+        });
       });
     } catch (error) {
       console.error(`Ошибка при отправке сообщения в очередь (попытка ${4 - retries}/3):`, error);
@@ -118,7 +162,7 @@ export const sendMessageToQueue = async (
       if (retries === 0) {
         throw error;
       }
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 };

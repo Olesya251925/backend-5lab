@@ -1,3 +1,5 @@
+import { Request, Response, NextFunction } from 'express';
+
 export interface Comment {
   id: string;
   lessonId: string;
@@ -15,4 +17,10 @@ export interface CreateCommentDto {
 
 export interface UpdateCommentDto {
   content: string;
-} 
+}
+
+export type AsyncRequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<Response | void>; 

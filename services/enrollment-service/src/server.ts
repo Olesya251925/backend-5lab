@@ -1,108 +1,66 @@
 import express from "express";
 import mongoose from "mongoose";
-import amqp from "amqplib";
-import config from "./utils/config";
-import axios from "axios";
+import { config } from "./config";
 import enrollmentRouter from "./routes/enrollmentRoutes";
-import { setStatusRequest } from "./services/setStatusRequest";
-
-const port = config.port;
-const apiVer = config.apiVer;
-const enrollmentUrl = config.enrollemntServiceUrl;
-const enrollmentQueue = config.queue;
-const dbUrl = config.mongoURL;
+import { rabbitMQService } from "./services/rabbitmq";
 
 const app = express();
+const port = config.port;
 
 app.use(express.json());
+app.use(`/${config.apiVer}`, enrollmentRouter);
 
-app.use(`/${apiVer}`, enrollmentRouter);
-
-async function connectRabbitMQ() {
-  let connection;
-  let retries = 5;
-  const deley = 5000;
-  while (retries) {
-    try {
-      connection = await amqp.connect(config.rabbitMQUrl);
-      const channel = await connection.createChannel();
-
-      await channel.assertQueue(enrollmentQueue, { durable: false });
-
-      console.log("[*] Ожидает сообщения. Для выхода нажать CTRL+C", enrollmentQueue);
-
-      channel.consume(
-        enrollmentQueue,
-        async (msg) => {
-          if (msg) {
-            const message = JSON.parse(msg.content.toString());
-            const { requestId, path, method, body, query, headers } = message;
-
-            const url = `${enrollmentUrl}:${port}/${apiVer}/${path}`;
-
-            const axiosConfig = {
-              method: method,
-              url: url,
-              params: query,
-              data: body,
-              headers: headers,
-              validateStatus: (status: number) => {
-                return status >= 200 && status < 600;
-              },
-            };
-
-            try {
-              const response = await axios(axiosConfig);
-              if (response.status <= 300 && response.status >= 200) {
-                setStatusRequest(requestId, response.data, "Выполнено", "Запрос выполнен успешно");
-              } else {
-                setStatusRequest(
-                  requestId,
-                  response.data,
-                  `Ошибка: ${response.status}`,
-                  "При выполнении запроса произошла ошибка",
-                );
-              }
-            } catch (error) {
-              console.log(error);
-            }
-            channel.ack(msg);
-          }
-        },
-        {
-          noAck: false,
-        },
-      );
-      console.log("Подключено к RabbitMQ");
-      return;
-    } catch (err) {
-      console.log(`Ошибка подключение, повторная попытка через ${deley / 1000} секунд...`, err);
-      retries--;
-      await new Promise((resolve) => setTimeout(resolve, deley));
-    }
-  }
-  console.error(`Ошибка подключения к RabbitMQ после нескольких попыток.`);
-  process.exit(1);
-}
-
-const connectDB = async (retryCount = 0) => {
-  const maxRetries = 5;
+// Инициализация RabbitMQ и MongoDB
+const initializeServices = async () => {
   try {
-    await mongoose.connect(dbUrl!);
-    connectRabbitMQ().then(() => {
-      app.listen(port, () => {
-        console.log(`Enrollment Service запущен на порту: ${port}`);
-      });
+    // Подключение к MongoDB
+    await mongoose.connect(config.mongoURL);
+    console.log("Connected to MongoDB");
+
+    // Подключение к RabbitMQ
+    await rabbitMQService.connect();
+    
+    // Создание очередей
+    await Promise.all([
+      rabbitMQService.createQueue(config.queues.enrollmentUpdates),
+      rabbitMQService.createQueue(config.queues.courseUpdates),
+      rabbitMQService.createQueue(config.queues.lessonUpdates)
+    ]);
+
+    // Настройка обработчиков сообщений
+    await rabbitMQService.consumeMessages(config.queues.courseUpdates, async (message) => {
+      console.log('Received course update:', message);
+      // Обработка обновлений курса
+    });
+
+    await rabbitMQService.consumeMessages(config.queues.lessonUpdates, async (message) => {
+      console.log('Received lesson update:', message);
+      // Обработка обновлений урока
+    });
+
+    // Запуск сервера
+    app.listen(port, () => {
+      console.log(`Enrollment service is running on port ${port}`);
     });
   } catch (error) {
-    console.error("Ошибка подключения к базе данных:", error);
-    if (retryCount < maxRetries) {
-      setTimeout(() => connectDB(retryCount + 1), 5000);
-    } else {
-      console.error("Превышено максимальное количество подключений.");
-      process.exit(1);
-    }
+    console.error("Error initializing services:", error);
+    process.exit(1);
   }
 };
 
-connectDB();
+// Обработка завершения работы
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received. Closing connections...');
+  await rabbitMQService.close();
+  await mongoose.connection.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received. Closing connections...');
+  await rabbitMQService.close();
+  await mongoose.connection.close();
+  process.exit(0);
+});
+
+initializeServices();

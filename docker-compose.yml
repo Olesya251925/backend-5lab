@@ -37,13 +37,20 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - rabbitmq
-      - user-service
-      - course-service
-      - tag-service
-      - lesson-service
-      - comment-service
-      - enrollment-service
+      rabbitmq:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      course-service:
+        condition: service_started
+      tag-service:
+        condition: service_started
+      lesson-service:
+        condition: service_started
+      comment-service:
+        condition: service_started
+      enrollment-service:
+        condition: service_started
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
@@ -55,9 +62,12 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      - rabbitmq
-      - status-service
-      - mongodb
+      rabbitmq:
+        condition: service_healthy
+      status-service:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/backend
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -72,10 +82,14 @@ services:
     ports:
       - "3002:3002"
     depends_on:
-      - rabbitmq
-      - status-service
-      - tag-service
-      - mongodb
+      rabbitmq:
+        condition: service_healthy
+      status-service:
+        condition: service_started
+      tag-service:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/backend
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -106,12 +120,17 @@ services:
     ports:
       - "3004:3004"
     depends_on:
-      - rabbitmq
-      - status-service
-      - mongodb
+      rabbitmq:
+        condition: service_healthy
+      status-service:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/backend
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    volumes:
+      - ./services/lesson-service/src:/app/src
     networks:
       - app-network
 
@@ -121,9 +140,12 @@ services:
     ports:
       - "3005:3005"
     depends_on:
-      - rabbitmq
-      - status-service
-      - mongodb
+      rabbitmq:
+        condition: service_healthy
+      status-service:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/backend
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -136,9 +158,12 @@ services:
     ports:
       - "3006:3006"
     depends_on:
-      - rabbitmq
-      - status-service
-      - mongodb
+      rabbitmq:
+        condition: service_healthy
+      status-service:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/backend
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -150,6 +175,9 @@ services:
     build: ./services/status-service
     ports:
       - "3007:3007"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     environment:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:

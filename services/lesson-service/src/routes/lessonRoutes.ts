@@ -1,5 +1,4 @@
-import express from "express";
-import asyncHandler from "express-async-handler";
+import express, { Request, Response, NextFunction } from "express";
 import {
   getLessons,
   getLessonById,
@@ -7,14 +6,25 @@ import {
   updateLesson,
   deleteLesson,
 } from "../controllers/lessonController";
-import { AsyncRequestHandler } from "../types/comment";
+
+type AsyncRequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<void | Response>;
 
 const router = express.Router();
 
-router.get("/", asyncHandler(getLessons as AsyncRequestHandler));
-router.get("/:id", asyncHandler(getLessonById as AsyncRequestHandler));
-router.post("/", asyncHandler(createLesson as AsyncRequestHandler));
-router.put("/:id", asyncHandler(updateLesson as AsyncRequestHandler));
-router.delete("/:id", asyncHandler(deleteLesson as AsyncRequestHandler));
+const wrapAsync = (fn: AsyncRequestHandler) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+
+router.get("/", wrapAsync(getLessons));
+router.get("/:id", wrapAsync(getLessonById));
+router.post("/", wrapAsync(createLesson));
+router.put("/:id", wrapAsync(updateLesson));
+router.delete("/:id", wrapAsync(deleteLesson));
 
 export default router;

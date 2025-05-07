@@ -1,19 +1,40 @@
-import { Schema, model, Document } from "mongoose";
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IProgress extends Document {
   userId: string;
   courseId: string;
-  lessonsCompleted: number[];
-  progressPercentage: number;
+  completedLessons: string[];
+  enrollmentDate: Date;
+  lastActivityDate: Date;
 }
 
-const progressSchema = new Schema<IProgress>({
-  userId: { type: String, required: true },
-  courseId: { type: String, required: true },
-  lessonsCompleted: { type: [Number], default: [] },
-  progressPercentage: { type: Number, default: 0 },
+const ProgressSchema = new Schema<IProgress>({
+  userId: {
+    type: String,
+    required: true
+  },
+  courseId: {
+    type: String,
+    required: true
+  },
+  completedLessons: [{
+    type: String
+  }],
+  enrollmentDate: {
+    type: Date,
+    default: Date.now
+  },
+  lastActivityDate: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: true
 });
 
-const Progress = model<IProgress>("Progress", progressSchema);
+// Создаем индексы для оптимизации запросов
+ProgressSchema.index({ userId: 1, courseId: 1 }, { unique: true });
+ProgressSchema.index({ userId: 1 });
+ProgressSchema.index({ courseId: 1 });
 
-export default Progress;
+export default mongoose.model<IProgress>('Progress', ProgressSchema);

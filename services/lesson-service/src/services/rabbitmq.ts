@@ -1,12 +1,5 @@
 import amqp, { ChannelModel, Channel } from 'amqplib';
-
-const rabbitMQConfig = {
-  url: 'amqp://guest:guest@rabbitmq:5672',
-  options: {
-    heartbeat: 60,
-    reconnectTimeInSeconds: 5
-  }
-};
+import config from '../utils/config';
 
 class RabbitMQService {
   private static instance: RabbitMQService;
@@ -37,7 +30,7 @@ class RabbitMQService {
 
     try {
       console.log('Connecting to RabbitMQ...');
-      this.connection = await amqp.connect(rabbitMQConfig.url);
+      this.connection = await amqp.connect(config.rabbitMQUrl);
       
       if (this.connection) {
         this.channel = await this.connection.createChannel();
@@ -82,10 +75,10 @@ class RabbitMQService {
       } catch (error) {
         console.error('Failed to reconnect to RabbitMQ:', error);
       }
-    }, rabbitMQConfig.options.reconnectTimeInSeconds * 1000);
+    }, 5000);
   }
 
-  public async createQueue(queueName: string, options = { durable: false }): Promise<void> {
+  public async createQueue(queueName: string, options = { durable: true }): Promise<void> {
     const channel = await this.connect();
     await channel.assertQueue(queueName, options);
     console.log(`Queue ${queueName} created successfully`);

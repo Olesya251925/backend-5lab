@@ -43,6 +43,8 @@ async function connectRabbitMQ() {
       channel.on("close", () => {
         console.log("Канал RabbitMQ закрыт");
         channel = null;
+        // Попытка пересоздания канала
+        setTimeout(() => connectRabbitMQ(), delay);
       });
 
       connection.on("error", (err) => {
@@ -56,7 +58,7 @@ async function connectRabbitMQ() {
         connection = null;
         channel = null;
         // Попытка переподключения
-        setTimeout(connectRabbitMQ, delay);
+        setTimeout(() => connectRabbitMQ(), delay);
       });
 
       console.log("[*] Waiting for messages. To exit press CTRL+C", courseQueue);

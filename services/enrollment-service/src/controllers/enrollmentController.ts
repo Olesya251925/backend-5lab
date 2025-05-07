@@ -1,144 +1,96 @@
-import { Request, Response, RequestHandler } from "express";
-import * as enrollmentService from "../utils/enrollmentService";
+import { Request, Response } from "express";
+import {
+  enrollUserInCourse,
+  getEnrollmentStatus,
+  calculateCourseProgress,
+  completeLesson as completeLessonService,
+  uncompleteLesson,
+} from "../services/enrollmentService";
+import Progress from "../models/enrollment";
 
-export const enrollInCourse: RequestHandler = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const enrollInCourse = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId } = req.body;
-    const courseId = req.params.courseId;
-
-    const user = await enrollmentService.findUser(userId);
-    if (!user) {
-      res.status(404).json({ message: "Пользователь не найден" });
-      return;
-    }
-
-    const course = await enrollmentService.findCourse(courseId);
-    if (!course) {
-      res.status(404).json({ message: "Курс не найден" });
-      return;
-    }
-
-    const existingProgress = await enrollmentService.findProgress(userId, courseId);
-    if (existingProgress) {
-      res.status(400).json({ message: "Пользователь уже записан на курс" });
-      return;
-    }
-
-    const progress = await enrollmentService.createProgress(userId, courseId);
-    res.status(201).json(progress);
+    const { userId, courseId } = req.body;
+    const enrollment = await enrollUserInCourse(userId, courseId);
+    res.status(201).json({ message: "Успешная запись на курс", enrollment });
   } catch (error) {
-    res.status(500).json({ message: "Ошибка при записи на курс", error });
+    if (error instanceof Error) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: "Ошибка при записи на курс" });
+    }
   }
 };
 
-export const getCourseProgress: RequestHandler = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getCourseProgress = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId } = req.body;
-    const courseId = req.params.courseId;
+    const { userId, courseId } = req.params;
+    const enrollment = await getEnrollmentStatus(userId, courseId);
 
-    const progress = await enrollmentService.findProgress(userId, courseId);
-    if (!progress) {
-      res.status(404).json({ message: "Запись о прогрессе не найдена" });
+    if (!enrollment) {
+      res.status(404).json({ message: "Запись на курс не найдена" });
       return;
     }
 
-    const lessons = await enrollmentService.getCourseLessons(courseId);
-    const totalLessons = lessons.length;
-    const completedLessons = progress.lessonsCompleted.length;
-    const progressPercentage = enrollmentService.calculateProgressPercentage(
-      totalLessons,
-      completedLessons,
-    );
-
-    res.json({ progressPercentage });
+    const progress = await calculateCourseProgress(userId, courseId);
+    res.json({ enrollment, progress });
   } catch (error) {
-    res.status(500).json({ message: "Ошибка получения прогресса", error });
+    if (error instanceof Error) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: "Ошибка при получении прогресса" });
+    }
   }
 };
 
-export const countCourseEnrollments: RequestHandler = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const completeLesson = async (req: Request, res: Response): Promise<void> => {
   try {
-    const courseId = req.params.courseId;
-    const count = await enrollmentService.countEnrollments(courseId);
-    res.json({ courseId, count });
+    const { userId } = req.body;
+    const { lessonId } = req.params;
+    const enrollment = await completeLessonService(userId, lessonId);
+    res.json({ message: "Урок успешно завершен", enrollment });
   } catch (error) {
-    res.status(500).json({ message: "Ошибка подсчёта студентов", error });
+    if (error instanceof Error) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: "Ошибка при завершении урока" });
+    }
   }
 };
 
-export const cancelLessonCompletion: RequestHandler = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const cancelLessonCompletion = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.body;
-    const courseId = req.params.courseId;
-    const lessonId = Number(req.params.lessonId);
-
-    const progress = await enrollmentService.findProgress(userId, courseId);
-    if (!progress) {
-      res.status(404).json({ message: "Запись о прогрессе не найдена" });
-      return;
-    }
-
-    if (!progress.lessonsCompleted.includes(lessonId)) {
-      res.status(400).json({ message: "Этот урок не завершён" });
-      return;
-    }
-
-    progress.lessonsCompleted = progress.lessonsCompleted.filter((lesson) => lesson !== lessonId);
-
-    await enrollmentService.updateProgress(progress, lessonId, courseId);
-    res.json({
-      message: "Урок отменён, прогресс обновлён",
-      progressPercentage: progress.progressPercentage,
-    });
+    const { lessonId } = req.params;
+    const enrollment = await uncompleteLesson(userId, lessonId);
+    res.json({ message: "Завершение урока отменено", enrollment });
   } catch (error) {
-    res.status(500).json({ message: "Ошибка отмены урока", error });
+    if (error instanceof Error) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: "Ошибка при отмене завершения урока" });
+    }
   }
 };
 
-export const completeLesson: RequestHandler = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const countCourseEnrollments = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId } = req.body;
-    const courseId = req.params.courseId;
-    const lessonId = Number(req.params.lessonId);
-
-    const progress = await enrollmentService.findProgress(userId, courseId);
-    if (!progress) {
-      res.status(404).json({ message: "Запись о прогрессе не найдена" });
-      return;
-    }
-
-    const lessonsInCourse = await enrollmentService.getCourseLessons(courseId);
-    const lessonIds = lessonsInCourse.map((l) => l.id);
-
-    if (!lessonIds.includes(lessonId)) {
-      res.status(400).json({ message: "Урок не относится к данному курсу" });
-      return;
-    }
-
-    if (progress.lessonsCompleted.includes(lessonId)) {
-      res.status(400).json({ message: "Этот урок уже завершён" });
-      return;
-    }
-
-    progress.lessonsCompleted.push(lessonId);
-    await enrollmentService.updateProgress(progress, lessonId, courseId);
-    res.json({ message: "Урок завершён", progressPercentage: progress.progressPercentage });
+    const { courseId } = req.params;
+    const count = await Progress.countDocuments({ courseId });
+    res.json({ count });
   } catch (error) {
-    res.status(500).json({ message: "Ошибка завершения урока", error });
+    if (error instanceof Error) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: "Ошибка при подсчете записей на курс" });
+    }
   }
+};
+
+export default {
+  enrollInCourse,
+  getCourseProgress,
+  completeLesson,
+  cancelLessonCompletion,
+  countCourseEnrollments,
 };
