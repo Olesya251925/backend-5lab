@@ -3,7 +3,7 @@ dotenv.config();
 
 const config = {
   port: process.env.PORT || 3000,
-  rabbitMQUrl: process.env.RABBITMQ_URL || "amqp://guest:guest@rabbitmq:5672",
+  rabbitMQUrl: process.env.RABBITMQ_URL || "amqp://admin:admin@rabbitmq:5672",
   apiVer: "api",
   statusServiceUrl: "http://status-service:3007/api/status",
   userServiceQueue: "user_queue",
