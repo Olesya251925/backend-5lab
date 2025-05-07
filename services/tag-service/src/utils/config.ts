@@ -4,11 +4,9 @@ dotenv.config();
 const config = {
   port: process.env.PORT || 3003,
   apiVer: "api",
-  tagServiceUrl: "http://tags-service",
+  tagServiceUrl: "http://tag-service",
   jwtKey: process.env.JWT_KEY || "olesya",
-  mongoURL:
-    process.env.MONGO_URL ||
-    "mongodb://host.docker.internal:27017/?directConnection=true&serverSelectionTimeoutMS=2000",
+  mongoURL: process.env.MONGODB_URI || "mongodb://mongodb:27017/backend",
   queue: "tag_queue",
   rabbitMQUrl: "amqp://guest:guest@rabbitmq:5672",
   statusServiceUrl: "http://status-service:3007/api/status",

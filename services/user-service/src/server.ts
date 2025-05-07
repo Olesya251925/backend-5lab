@@ -3,7 +3,10 @@ import mongoose from "mongoose";
 import config from "./utils/config";
 import axios from "axios";
 import { setStatusRequest } from "./services/setStatusRequest";
-import { rabbitMQService } from "../../shared/services/rabbitmq";
+import { rabbitMQService } from './services/rabbitmq';
+import authRoutes from "./routes/authRoutes";
+import userRoutes from "./routes/userRoutes";
+import { ConsumeMessage } from "amqplib";
 
 const port = config.port;
 const apiVer = config.apiVer;
@@ -15,21 +18,31 @@ const app = express();
 
 app.use(express.json());
 
+// Подключаем маршруты
+app.use(`/${apiVer}/auth`, authRoutes);
+app.use(`/${apiVer}/users`, userRoutes);
+
 async function connectRabbitMQ() {
   try {
+    console.log("Попытка подключения к RabbitMQ...");
     const channel = await rabbitMQService.connect();
+    console.log("Канал RabbitMQ создан успешно");
+    
     await rabbitMQService.createQueue(userQueue);
+    console.log(`Очередь ${userQueue} создана успешно`);
 
     console.log("[*] Ожидает сообщения. Для выхода нажать CTRL+C", userQueue);
 
     channel.consume(
       userQueue,
-      async (msg) => {
+      async (msg: ConsumeMessage | null) => {
         if (msg) {
+          console.log("Получено новое сообщение:", msg.content.toString());
           const message = JSON.parse(msg.content.toString());
           const { requestId, path, method, body, query, headers } = message;
 
           const url = `${userUrl}:${port}/${apiVer}/${path}`;
+          console.log("Обработка запроса:", { method, url, path });
 
           const axiosConfig = {
             method: method,
@@ -44,6 +57,7 @@ async function connectRabbitMQ() {
 
           try {
             const response = await axios(axiosConfig);
+            console.log("Получен ответ:", response.status);
             if (response.status <= 300 && response.status >= 200) {
               setStatusRequest(requestId, response.data, "Выполнено", "Запрос выполнен успешно");
             } else {
@@ -55,7 +69,7 @@ async function connectRabbitMQ() {
               );
             }
           } catch (error) {
-            console.log(error);
+            console.error("Ошибка при обработке запроса:", error);
           }
           channel.ack(msg);
         }
@@ -64,7 +78,7 @@ async function connectRabbitMQ() {
         noAck: false,
       },
     );
-    console.log("Подключено к RabbitMQ");
+    console.log("Подключено к RabbitMQ и готово к работе");
   } catch (error) {
     console.error("Ошибка подключения к RabbitMQ:", error);
     process.exit(1);

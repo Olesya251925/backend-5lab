@@ -1,5 +1,6 @@
 services:
   mongodb:
+    container_name: mongodb
     image: mongo:latest
     ports:
       - "27017:27017"
@@ -7,19 +8,31 @@ services:
       - mongodb_data:/data/db
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   rabbitmq:
+    container_name: rabbitmq
     image: rabbitmq:3.9-management
     ports:
       - "5672:5672"
       - "15672:15672"
     environment:
-      - RABBITMQ_DEFAULT_USER=admin
-      - RABBITMQ_DEFAULT_PASS=admin
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api-gateway:
+    container_name: gateway
     build: ./services/gateway
     ports:
       - "3000:3000"
@@ -32,11 +45,12 @@ services:
       - comment-service
       - enrollment-service
     environment:
-      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 
   user-service:
+    container_name: user-service
     build: ./services/user-service
     ports:
       - "3001:3001"
@@ -47,10 +61,13 @@ services:
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/backend
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    volumes:
+      - ./services/shared:/app/shared
     networks:
       - app-network
 
   course-service:
+    container_name: course-service
     build: ./services/course-service
     ports:
       - "3002:3002"
@@ -66,13 +83,17 @@ services:
       - app-network
 
   tag-service:
+    container_name: tag-service
     build: ./services/tag-service
     ports:
       - "3003:3003"
     depends_on:
-      - rabbitmq
-      - status-service
-      - mongodb
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      status-service:
+        condition: service_started
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/backend
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -80,6 +101,7 @@ services:
       - app-network
 
   lesson-service:
+    container_name: lesson-service
     build: ./services/lesson-service
     ports:
       - "3004:3004"
@@ -94,6 +116,7 @@ services:
       - app-network
 
   comment-service:
+    container_name: comment-service
     build: ./services/comment-service
     ports:
       - "3005:3005"
@@ -108,6 +131,7 @@ services:
       - app-network
 
   enrollment-service:
+    container_name: enrollment-service
     build: ./services/enrollment-service
     ports:
       - "3006:3006"
@@ -122,6 +146,7 @@ services:
       - app-network
 
   status-service:
+    container_name: status-service
     build: ./services/status-service
     ports:
       - "3007:3007"
@@ -136,3 +161,4 @@ networks:
 
 volumes:
   mongodb_data:
+    driver: local

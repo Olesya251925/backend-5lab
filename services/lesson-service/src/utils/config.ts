@@ -11,7 +11,7 @@ const config = {
     "mongodb://host.docker.internal:27017/?directConnection=true&serverSelectionTimeoutMS=2000",
   queue: "lesson_queue",
   jwtKey: process.env.JWT_KEY || "olesya",
-  rabbitMQUrl: "amqp://rabbitmq:5672",
+  rabbitMQUrl: "amqp://guest:guest@rabbitmq:5672",
   statusServiceUrl: "http://status-service:3007/api/status",
 };
 

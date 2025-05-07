@@ -1,10 +1,11 @@
 import express from "express";
 import mongoose from "mongoose";
-import amqp from "amqplib";
 import config from "./utils/config";
 import axios from "axios";
 import lessonRouter from "./routes/lessonRoutes";
 import { setStatusRequest } from "./services/setStatusRequest";
+import { rabbitMQService } from './services/rabbitmq';
+import { ConsumeMessage } from "amqplib";
 
 const port = config.port;
 const apiVer = config.apiVer;
@@ -19,69 +20,66 @@ app.use(express.json());
 app.use(`/${apiVer}`, lessonRouter);
 
 async function connectRabbitMQ() {
-  let connection;
-  let retries = 5;
-  const deley = 5000;
-  while (retries) {
-    try {
-      connection = await amqp.connect(config.rabbitMQUrl);
-      const channel = await connection.createChannel();
-      await channel.assertQueue(lessonQueue, { durable: false });
+  try {
+    console.log("Попытка подключения к RabbitMQ...");
+    const channel = await rabbitMQService.connect();
+    console.log("Канал RabbitMQ создан успешно");
 
-      console.log("[*] Ожидает сообщения. Для выхода нажать CTRL+C", lessonQueue);
+    await rabbitMQService.createQueue(lessonQueue);
+    console.log(`Очередь ${lessonQueue} создана успешно`);
 
-      channel.consume(
-        lessonQueue,
-        async (msg) => {
-          if (msg) {
-            const message = JSON.parse(msg.content.toString());
-            const { requestId, path, method, body, query, headers } = message;
+    console.log("[*] Ожидает сообщения. Для выхода нажать CTRL+C", lessonQueue);
 
-            const url = `${lessonUrl}:${port}/${apiVer}/${path}`;
+    channel.consume(
+      lessonQueue,
+      async (msg: ConsumeMessage | null) => {
+        if (msg) {
+          console.log("Получено новое сообщение:", msg.content.toString());
+          const message = JSON.parse(msg.content.toString());
+          const { requestId, path, method, body, query, headers } = message;
 
-            const axiosConfig = {
-              method: method,
-              url: url,
-              params: query,
-              data: body,
-              headers: headers,
-              validateStatus: (status: number) => {
-                return status >= 200 && status < 600;
-              },
-            };
+          const url = `${lessonUrl}:${port}/${apiVer}/${path}`;
+          console.log("Обработка запроса:", { method, url, path });
 
-            try {
-              const response = await axios(axiosConfig);
-              if (response.status <= 300 && response.status >= 200) {
-                setStatusRequest(requestId, response.data, "Выполнено", "Запрос выполнен успешно");
-              } else {
-                setStatusRequest(
-                  requestId,
-                  response.data,
-                  `Ошибка: ${response.status}`,
-                  "При выполнении запроса произошла ошибка",
-                );
-              }
-            } catch (error) {
-              console.log(error);
+          const axiosConfig = {
+            method: method,
+            url: url,
+            params: query,
+            data: body,
+            headers: headers,
+            validateStatus: (status: number) => {
+              return status >= 200 && status < 600;
+            },
+          };
+
+          try {
+            const response = await axios(axiosConfig);
+            console.log("Получен ответ:", response.status);
+            if (response.status <= 300 && response.status >= 200) {
+              setStatusRequest(requestId, response.data, "Выполнено", "Запрос выполнен успешно");
+            } else {
+              setStatusRequest(
+                requestId,
+                response.data,
+                `Ошибка: ${response.status}`,
+                "При выполнении запроса произошла ошибка",
+              );
             }
-            channel.ack(msg);
+          } catch (error) {
+            console.error("Ошибка при обработке запроса:", error);
           }
-        },
-        {
-          noAck: false,
-        },
-      );
-      console.log("Подключено к RabbitMQ");
-      return;
-    } catch (err) {
-      console.log(`Ошибка подключение, повторная попытка через ${deley / 1000} секунд...`, err);
-      retries--;
-      await new Promise((resolve) => setTimeout(resolve, deley));
-    }
+          channel.ack(msg);
+        }
+      },
+      {
+        noAck: false,
+      },
+    );
+    console.log("Подключено к RabbitMQ и готово к работе");
+  } catch (error) {
+    console.error("Ошибка подключения к RabbitMQ:", error);
+    process.exit(1);
   }
-  console.error(`Ошибка подключения к RabbitMQ после нескольких попыток.`);
-  process.exit(1);
 }
 
 const connectDB = async (retryCount = 0) => {

@@ -18,70 +18,115 @@ app.use(express.json());
 
 app.use(`/${apiVer}`, tagRouter);
 
+let connection: amqp.Connection | null = null;
+let channel: amqp.Channel | null = null;
+
 async function connectRabbitMQ() {
-  let connection;
   let retries = 5;
-  const deley = 5000;
-  while (retries) {
+  const delay = 5000;
+  
+  while (retries > 0) {
     try {
+      console.log(`Attempting to connect to RabbitMQ (${6 - retries}/5)...`);
       connection = await amqp.connect(config.rabbitMQUrl);
-      const channel = await connection.createChannel();
+      channel = await connection.createChannel();
 
-      await channel.assertQueue(courseQueue, { durable: false });
+      await channel.assertQueue(courseQueue, { 
+        durable: true
+      });
 
-      console.log("[*] Ожидает сообщения. Для выхода нажать CTRL+C", courseQueue);
+      channel.on("error", (err) => {
+        console.error("Ошибка канала RabbitMQ:", err);
+        channel = null;
+      });
+
+      channel.on("close", () => {
+        console.log("Канал RabbitMQ закрыт");
+        channel = null;
+      });
+
+      connection.on("error", (err) => {
+        console.error("Ошибка соединения с RabbitMQ:", err);
+        connection = null;
+        channel = null;
+      });
+
+      connection.on("close", () => {
+        console.log("Соединение с RabbitMQ закрыто");
+        connection = null;
+        channel = null;
+        // Попытка переподключения
+        setTimeout(connectRabbitMQ, delay);
+      });
+
+      console.log("[*] Waiting for messages. To exit press CTRL+C", courseQueue);
 
       channel.consume(
         courseQueue,
         async (msg) => {
-          if (msg) {
-            const message = JSON.parse(msg.content.toString());
-            const { requestId, path, method, body, query, headers } = message;
-
-            const url = `${courseUrl}:${port}/${apiVer}/${path}`;
-
-            const axiosConfig = {
-              method: method,
-              url: url,
-              params: query,
-              data: body,
-              headers: headers,
-              validateStatus: (status: number) => {
-                return status >= 200 && status < 600;
-              },
-            };
-
+          if (msg && channel) {
             try {
-              const response = await axios(axiosConfig);
-              if (response.status <= 300 && response.status >= 200) {
-                setStatusRequest(requestId, response.data, "Выполнено", "Запрос выполнен успешно");
-              } else {
-                setStatusRequest(
+              const message = JSON.parse(msg.content.toString());
+              const { requestId, path, method, body, query, headers } = message;
+
+              const url = `${courseUrl}:${port}/${apiVer}/${path}`;
+
+              const axiosConfig = {
+                method: method,
+                url: url,
+                params: query,
+                data: body,
+                headers: headers,
+                validateStatus: (status: number) => {
+                  return status >= 200 && status < 600;
+                },
+              };
+
+              try {
+                const response = await axios(axiosConfig);
+                if (response.status >= 200 && response.status < 300) {
+                  await setStatusRequest(requestId, response.data, "Completed", "Request completed successfully");
+                } else {
+                  await setStatusRequest(
+                    requestId,
+                    response.data,
+                    `Error: ${response.status}`,
+                    "An error occurred while processing the request",
+                  );
+                }
+              } catch (error) {
+                console.error("Error processing message:", error);
+                await setStatusRequest(
                   requestId,
-                  response.data,
-                  `Ошибка: ${response.status}`,
-                  "При выполнении запроса произошла ошибка",
+                  null,
+                  "Error",
+                  error instanceof Error ? error.message : "Unknown error occurred"
                 );
               }
+              channel.ack(msg);
             } catch (error) {
-              console.log(error);
+              console.error("Error processing message:", error);
+              if (channel) {
+                channel.nack(msg, false, true);
+              }
             }
-            channel.ack(msg);
           }
         },
         {
           noAck: false,
         },
       );
-      console.log("Подключено к RabbitMQ");
-      return;
+      
+      console.log("Successfully connected to RabbitMQ");
+      return connection;
     } catch (err) {
-      console.log(`Ошибка подключение, повторная попытка через ${deley / 1000} секунд...`, err);
+      console.log(`Connection error, retrying in ${delay / 1000} seconds...`, err);
       retries--;
-      await new Promise((resolve) => setTimeout(resolve, deley));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  console.error(`Ошибка подключения к RabbitMQ после нескольких попыток.`);
+  
+  console.error("Failed to connect to RabbitMQ after multiple attempts");
   process.exit(1);
 }
 
