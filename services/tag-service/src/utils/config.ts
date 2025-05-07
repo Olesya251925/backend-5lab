@@ -10,7 +10,7 @@ const config = {
     process.env.MONGO_URL ||
     "mongodb://host.docker.internal:27017/?directConnection=true&serverSelectionTimeoutMS=2000",
   queue: "tag_queue",
-  rabbitMQUrl: "amqp://rabbitmq:5672",
+  rabbitMQUrl: "amqp://guest:guest@rabbitmq:5672",
   statusServiceUrl: "http://status-service:3007/api/status",
 };
 

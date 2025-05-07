@@ -1,9 +1,9 @@
 import express from "express";
 import mongoose from "mongoose";
-import amqp from "amqplib";
 import config from "./utils/config";
 import axios from "axios";
 import { setStatusRequest } from "./services/setStatusRequest";
+import { rabbitMQService } from "../../shared/services/rabbitmq";
 
 const port = config.port;
 const apiVer = config.apiVer;
@@ -16,70 +16,59 @@ const app = express();
 app.use(express.json());
 
 async function connectRabbitMQ() {
-  let connection;
-  let retries = 5;
-  const deley = 5000;
-  while (retries) {
-    try {
-      connection = await amqp.connect(config.rabbitMQUrl);
-      const channel = await connection.createChannel();
+  try {
+    const channel = await rabbitMQService.connect();
+    await rabbitMQService.createQueue(userQueue);
 
-      await channel.assertQueue(userQueue, { durable: true });
+    console.log("[*] Ожидает сообщения. Для выхода нажать CTRL+C", userQueue);
 
-      console.log("[*] Ожидает сообщения. Для выхода нажать CTRL+C", userQueue);
+    channel.consume(
+      userQueue,
+      async (msg) => {
+        if (msg) {
+          const message = JSON.parse(msg.content.toString());
+          const { requestId, path, method, body, query, headers } = message;
 
-      channel.consume(
-        userQueue,
-        async (msg) => {
-          if (msg) {
-            const message = JSON.parse(msg.content.toString());
-            const { requestId, path, method, body, query, headers } = message;
+          const url = `${userUrl}:${port}/${apiVer}/${path}`;
 
-            const url = `${userUrl}:${port}/${apiVer}/${path}`;
+          const axiosConfig = {
+            method: method,
+            url: url,
+            params: query,
+            data: body,
+            headers: headers,
+            validateStatus: (status: number) => {
+              return status >= 200 && status < 600;
+            },
+          };
 
-            const axiosConfig = {
-              method: method,
-              url: url,
-              params: query,
-              data: body,
-              headers: headers,
-              validateStatus: (status: number) => {
-                return status >= 200 && status < 600;
-              },
-            };
-
-            try {
-              const response = await axios(axiosConfig);
-              if (response.status <= 300 && response.status >= 200) {
-                setStatusRequest(requestId, response.data, "Выполнено", "Запрос выполнен успешно");
-              } else {
-                setStatusRequest(
-                  requestId,
-                  response.data,
-                  `Ошибка: ${response.status}`,
-                  "При выполнении запроса произошла ошибка",
-                );
-              }
-            } catch (error) {
-              console.log(error);
+          try {
+            const response = await axios(axiosConfig);
+            if (response.status <= 300 && response.status >= 200) {
+              setStatusRequest(requestId, response.data, "Выполнено", "Запрос выполнен успешно");
+            } else {
+              setStatusRequest(
+                requestId,
+                response.data,
+                `Ошибка: ${response.status}`,
+                "При выполнении запроса произошла ошибка",
+              );
             }
-            channel.ack(msg);
+          } catch (error) {
+            console.log(error);
           }
-        },
-        {
-          noAck: false,
-        },
-      );
-      console.log("Подключено к RabbitMQ");
-      return;
-    } catch (err) {
-      console.log(`Ошибка подключение, повторная попытка через ${deley / 1000} секунд...`, err);
-      retries--;
-      await new Promise((resolve) => setTimeout(resolve, deley));
-    }
+          channel.ack(msg);
+        }
+      },
+      {
+        noAck: false,
+      },
+    );
+    console.log("Подключено к RabbitMQ");
+  } catch (error) {
+    console.error("Ошибка подключения к RabbitMQ:", error);
+    process.exit(1);
   }
-  console.error(`Ошибка подключения к RabbitMQ после нескольких попыток.`);
-  process.exit(1);
 }
 
 const connectDB = async (retryCount = 0) => {

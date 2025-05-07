@@ -13,6 +13,9 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
     networks:
       - app-network
 
@@ -28,6 +31,8 @@ services:
       - lesson-service
       - comment-service
       - enrollment-service
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 
@@ -40,7 +45,8 @@ services:
       - status-service
       - mongodb
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/user-service
+      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 
@@ -54,7 +60,8 @@ services:
       - tag-service
       - mongodb
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/course-service
+      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 
@@ -67,7 +74,8 @@ services:
       - status-service
       - mongodb
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/tag-service
+      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 
@@ -80,7 +88,8 @@ services:
       - status-service
       - mongodb
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/lesson-service
+      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 
@@ -93,7 +102,8 @@ services:
       - status-service
       - mongodb
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/comment-service
+      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 
@@ -106,7 +116,8 @@ services:
       - status-service
       - mongodb
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/enrollment-service
+      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 
@@ -114,6 +125,8 @@ services:
     build: ./services/status-service
     ports:
       - "3007:3007"
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 

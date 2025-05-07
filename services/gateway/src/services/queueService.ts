@@ -1,4 +1,4 @@
-import amqp, { Channel, ChannelModel } from "amqplib";
+import amqp, { Channel, Connection } from "amqplib";
 import config from "../utils/config";
 import { ParsedQs } from "qs";
 
@@ -13,9 +13,9 @@ interface QueueMessage {
   params: Record<string, string>;
 }
 
-let connection: ChannelModel | null = null;
+let connection: Connection | null = null;
 
-const getConnection = async (): Promise<ChannelModel> => {
+const getConnection = async (): Promise<Connection> => {
   if (!connection) {
     try {
       connection = await amqp.connect(config.rabbitMQUrl);
