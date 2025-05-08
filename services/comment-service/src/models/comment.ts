@@ -11,4 +11,4 @@ const CommentSchema: Schema = new Schema(
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
-export default mongoose.model<IComment>("Comment", CommentSchema);
+export default mongoose.model<IComment>("Comment", CommentSchema, "comments");

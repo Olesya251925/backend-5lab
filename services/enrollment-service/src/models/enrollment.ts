@@ -37,4 +37,4 @@ ProgressSchema.index({ userId: 1, courseId: 1 }, { unique: true });
 ProgressSchema.index({ userId: 1 });
 ProgressSchema.index({ courseId: 1 });
 
-export default mongoose.model<IProgress>('Progress', ProgressSchema);
+export default mongoose.model<IProgress>('Progress', ProgressSchema, 'enrollments');

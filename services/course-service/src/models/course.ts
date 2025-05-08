@@ -38,4 +38,4 @@ const CourseSchema = new Schema<ICourse>(
   { versionKey: false },
 );
 
-export default mongoose.model<ICourse>("Course", CourseSchema);
+export default mongoose.model<ICourse>("Course", CourseSchema, "courses");

@@ -91,7 +91,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - MONGODB_URI=mongodb://mongodb:27017/course-service
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
@@ -109,7 +109,7 @@ services:
       status-service:
         condition: service_started
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - MONGODB_URI=mongodb://mongodb:27017/tag-service
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
@@ -127,7 +127,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - MONGODB_URI=mongodb://mongodb:27017/lesson-service
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     volumes:
       - ./services/lesson-service/src:/app/src
@@ -147,7 +147,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - MONGODB_URI=mongodb://mongodb:27017/comment-service
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
@@ -165,7 +165,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/backend
+      - MONGODB_URI=mongodb://mongodb:27017/enrollment-service
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network

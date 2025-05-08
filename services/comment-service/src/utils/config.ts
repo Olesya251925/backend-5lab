@@ -6,9 +6,7 @@ const config = {
   apiVer: "api",
   commentServiceUrl: "http://comments-service",
   userServiceUrl: "http://user-service:3001/api",
-  mongoURL:
-    process.env.MONGO_URL ||
-    "mongodb://host.docker.internal:27017/?directConnection=true&serverSelectionTimeoutMS=2000",
+  mongoURL: process.env.MONGODB_URI || "mongodb://mongodb:27017/comment-service",
   queue: "comment_queue",
   jwtKey: process.env.JWT_KEY || "olesya",
   rabbitMQUrl: "amqp://guest:guest@rabbitmq:5672",

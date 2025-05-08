@@ -13,4 +13,4 @@ const LessonSchema: Schema = new Schema(
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
-export default mongoose.model<ILesson>("Lesson", LessonSchema);
+export default mongoose.model<ILesson>("Lesson", LessonSchema, "lessons");

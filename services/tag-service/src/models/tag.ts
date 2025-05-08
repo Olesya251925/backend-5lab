@@ -6,4 +6,4 @@ const TagSchema = new Schema<ITag>({
   name: { type: String, required: true, unique: true },
 });
 
-export default mongoose.model<ITag>("Tag", TagSchema);
+export default mongoose.model<ITag>("Tag", TagSchema, "tags");

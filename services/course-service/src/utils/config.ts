@@ -9,9 +9,7 @@ const config = {
   jwtKey: process.env.JWT_KEY || "olesya",
   coursesServiceUrl: "http://courses-service",
   userServiceUrl: "http://user-service:3001/api",
-  mongoURL:
-    process.env.MONGO_URL ||
-    "mongodb://host.docker.internal:27017/?directConnection=true&serverSelectionTimeoutMS=2000",
+  mongoURL: process.env.MONGODB_URI || "mongodb://mongodb:27017/course-service",
   queue: "course_queue",
   rabbitMQUrl: "amqp://guest:guest@rabbitmq:5672",
   statusServiceUrl: "http://status-service:3007/api/status",
