@@ -8,7 +8,7 @@ const config = {
   userServiceUrl: "http://user-service:3001/api",
   courseServiceUrl: "http://courses-service:3002/api",
   lessonServiceUrl: "http://lessons-service:3004/api",
-  mongoURL: process.env.MONGODB_URI || "mongodb://mongodb:27017/enrollment-service",
+  mongoURL: process.env.MONGODB_URI || "mongodb://mongodb:27017/backend",
   queue: "enrollment_queue",
   jwtKey: process.env.JWT_KEY || "olesya",
   rabbitMQUrl: "amqp://guest:guest@rabbitmq:5672",

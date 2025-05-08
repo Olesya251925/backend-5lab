@@ -88,7 +88,9 @@ async function connectRabbitMQ() {
 const connectDB = async (retryCount = 0) => {
   const maxRetries = 5;
   try {
-    await mongoose.connect(dbUrl!);
+    await mongoose.connect(dbUrl!, {
+      dbName: 'backend'
+    });
     connectRabbitMQ().then(() => {
       app.listen(port, () => {
         console.log(`Courses Service запущен на порту: ${port}`);

@@ -80,7 +80,9 @@ const initializeRabbitMQ = async () => {
 
 // Подключение к MongoDB
 mongoose
-  .connect(dbUrl)
+  .connect(dbUrl, {
+    dbName: 'backend'
+  })
   .then(() => {
     console.log("Connected to MongoDB");
     return initializeRabbitMQ();

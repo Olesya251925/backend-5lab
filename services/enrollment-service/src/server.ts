@@ -14,7 +14,9 @@ app.use(`/${config.apiVer}`, enrollmentRouter);
 const initializeServices = async () => {
   try {
     // Подключение к MongoDB
-    await mongoose.connect(config.mongoURL);
+    await mongoose.connect(config.mongoURL, {
+      dbName: 'backend'
+    });
     console.log("Connected to MongoDB");
 
     // Подключение к RabbitMQ

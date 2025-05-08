@@ -6,6 +6,7 @@ import axios from "axios";
 import { setStatusRequest } from "./services/setStatusRequest";
 import authRoutes from "./routes/authRoutes";
 import userRoutes from "./routes/userRoutes";
+import User from "./models/user";
 
 const port = config.port;
 const userQueue = config.queue;
@@ -149,7 +150,14 @@ async function connectRabbitMQ() {
 const connectDB = async (retryCount = 0) => {
   const maxRetries = 5;
   try {
-    await mongoose.connect(dbUrl!);
+    // Убедимся, что URL содержит имя базы данных
+    const mongoUrl = dbUrl!.includes('/backend') ? dbUrl : `${dbUrl}/backend`;
+    
+    await mongoose.connect(mongoUrl, {
+      autoCreate: false,
+      autoIndex: false,
+      dbName: 'backend'
+    });
     console.log("Connected to MongoDB");
 
     // Сначала запускаем HTTP-сервер

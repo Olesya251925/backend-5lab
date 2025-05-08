@@ -18,4 +18,14 @@ const UserSchema = new Schema<IUser>({
   role: { type: String, enum: ["student", "teacher"], required: true },
 });
 
-export default mongoose.model<IUser>("User", UserSchema, "users");
+// Удаляем все существующие модели User
+Object.keys(mongoose.models).forEach(modelName => {
+  if (modelName === 'User') {
+    delete mongoose.models[modelName];
+  }
+});
+
+// Создаем модель с явным указанием имени коллекции
+const User = mongoose.model<IUser>('User', UserSchema, 'users');
+
+export default User;
