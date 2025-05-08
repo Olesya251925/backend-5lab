@@ -1,66 +1,154 @@
-import express from "express";
+import express, { RequestHandler } from "express";
 import cors from "cors";
 import { connectToRabbitMQ, getChannel } from "./utils/rabbitmq";
 
+// Константы для имен очередей
+const USER_SERVICE_QUEUE = "user-service";
+const STATUS_SERVICE_QUEUE = "status-service";
+
+interface ServiceResponse {
+  statusCode: number;
+  data: {
+    message?: string;
+    error?: string;
+    user?: {
+      firstName: string;
+      lastName: string;
+      login: string;
+      role: string;
+    };
+  };
+}
+
 const app = express();
+let isRabbitMQReady = false;
 
 app.use(cors());
 app.use(express.json());
 
-// Подключение к RabbitMQ с задержкой
-setTimeout(() => {
-  connectToRabbitMQ()
-    .then(() => {
-      console.log("✅ Успешно подключено к RabbitMQ");
-    })
-    .catch((err) => {
-      console.error("❌ Ошибка подключения к RabbitMQ:", err);
-    });
-}, 10000); // 10 секунд задержки
+// Подключение к RabbitMQ
+connectToRabbitMQ()
+  .then(() => {
+    console.log("✅ Gateway успешно подключен к RabbitMQ");
+    isRabbitMQReady = true;
+
+    // Создаем очереди для сервисов
+    const channel = getChannel();
+    channel
+      .assertQueue(USER_SERVICE_QUEUE, { durable: true })
+      .then(() => {
+        console.log(`✅ Очередь ${USER_SERVICE_QUEUE} создана`);
+        return channel.checkQueue(USER_SERVICE_QUEUE);
+      })
+      .then((queueInfo) => {
+        console.log(`📊 Информация об очереди ${USER_SERVICE_QUEUE}:`);
+        console.log(`   - Количество сообщений: ${queueInfo.messageCount}`);
+        console.log(`   - Количество потребителей: ${queueInfo.consumerCount}`);
+      })
+      .catch((err) => {
+        console.error("❌ Ошибка при работе с очередью:", err);
+      });
+  })
+  .catch((err) => {
+    console.error("❌ Ошибка подключения к RabbitMQ:", err);
+  });
+
+// Middleware для проверки готовности RabbitMQ
+const checkRabbitMQReady: RequestHandler = (req, res, next) => {
+  if (!isRabbitMQReady) {
+    console.log("⏳ Ожидание подключения к RabbitMQ...");
+    res.status(503).json({ error: "Сервис временно недоступен. Попробуйте позже." });
+    return;
+  }
+  next();
+};
+
+app.use("/api/*", checkRabbitMQReady);
 
 // Маршрутизация запросов
-app.all("*", async (req, res) => {
+app.all("/api/*", async (req, res) => {
   const { method, path, body } = req;
   const service = determineService(path);
-  console.log(`📨 Получен запрос: ${method} ${path}`);
+  const startTime = Date.now();
+
+  console.log(`\n🔄 [${new Date().toISOString()}] Начало обработки запроса:`);
+  console.log(`📨 Метод: ${method}, Путь: ${path}`);
+  console.log(`📝 Тело запроса:`, body);
+  console.log(`🎯 Сервис: ${service}`);
 
   try {
     const channel = getChannel();
     const correlationId = generateCorrelationId();
-    console.log(`🔄 Отправка запроса в сервис ${service} с ID: ${correlationId}`);
 
-    // Отправляем сообщение в соответствующую очередь
-    channel.sendToQueue(`${service}-service`, Buffer.from(JSON.stringify({ method, path, body })), {
+    // Создаем очередь для ответа
+    const responseQueue = `response-${correlationId}`;
+    await channel.assertQueue(responseQueue, { exclusive: true });
+
+    // Отправляем сообщение
+    const message = {
+      method,
+      path: path.replace("/api", ""),
+      body,
       correlationId,
-    });
+      responseQueue,
+      timestamp: new Date().toISOString(),
+    };
 
-    // Ждем ответа
-    const response = await waitForResponse(correlationId);
-    console.log(`✅ Получен ответ от сервиса ${service}`);
-    res.status(response.status).json(response.data);
-  } catch (error) {
-    console.error(`❌ Ошибка при обработке запроса: ${error}`);
-    res.status(500).json({ error: "Внутренняя ошибка сервера" });
+    // Используем константу для имени очереди
+    const targetQueue = service === "user" ? USER_SERVICE_QUEUE : STATUS_SERVICE_QUEUE;
+
+    channel.sendToQueue(targetQueue, Buffer.from(JSON.stringify(message)));
+    console.log(`✅ Сообщение отправлено в очередь ${targetQueue}`);
+
+    // Ожидание ответа
+    const response = await waitForResponse(correlationId, responseQueue);
+    const processingTime = Date.now() - startTime;
+
+    console.log(`\n✅ Получен ответ (${processingTime}ms):`, response);
+    res.status(response.statusCode).json(response.data);
+  } catch (error: unknown) {
+    console.error(`\n❌ Ошибка при обработке запроса:`, error);
+    res.status(500).json({
+      error: "Внутренняя ошибка сервера",
+      details: error instanceof Error ? error.message : "Неизвестная ошибка",
+    });
   }
 });
 
+// Упрощенная функция определения сервиса
 function determineService(path: string): string {
-  if (path.startsWith("/auth") || path.startsWith("/users")) {
+  if (path.startsWith("/api/auth") || path.startsWith("/api/users")) {
     return "user";
-  } else if (path.startsWith("/status")) {
+  } else if (path.startsWith("/api/status")) {
     return "status";
   }
   return "unknown";
 }
 
 function generateCorrelationId(): string {
-  return Math.random().toString() + Date.now().toString();
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-async function waitForResponse(correlationId: string): Promise<any> {
-  // Здесь должна быть реализация ожидания ответа от сервиса
-  // Это упрощенная версия, в реальности нужно использовать механизм ожидания
-  return { status: 200, data: { message: "Success" } };
+async function waitForResponse(
+  correlationId: string,
+  responseQueue: string,
+): Promise<ServiceResponse> {
+  const channel = getChannel();
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      channel.deleteQueue(responseQueue);
+      reject(new Error("Таймаут ожидания ответа"));
+    }, 30000);
+
+    channel.consume(responseQueue, (msg) => {
+      if (msg) {
+        clearTimeout(timeout);
+        const response = JSON.parse(msg.content.toString()) as ServiceResponse;
+        channel.deleteQueue(responseQueue);
+        resolve(response);
+      }
+    });
+  });
 }
 
 export default app;

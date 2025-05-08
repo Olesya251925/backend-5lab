@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import connectDB from "./config/database";
 import apiRouter from "./config/routeConfig";
+import { connectQueue } from "./config/rabbitmq";
 
 dotenv.config();
 const app = express();
@@ -10,6 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 connectDB();
+connectQueue();
 
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));

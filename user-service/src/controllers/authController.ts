@@ -1,41 +1,37 @@
-import { Request, Response } from "express";
-import bcrypt from "bcryptjs";
+import type { Request, Response } from "express";
+import { User } from "../models/user";
+import type { AuthRequest } from "../types/auth";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import User from "../models/user";
 import { isRegistrationDataValid } from "../utils/validation";
 
-export const register = async (req: Request, res: Response): Promise<Response> => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { firstName, lastName, login, password, role } = req.body;
 
     if (!isRegistrationDataValid(firstName, lastName, login, password, role)) {
-      return res.status(400).json({ message: "Все поля обязательны для заполнения" });
+      res.status(400).json({ message: "Все поля обязательны для заполнения" });
+      return;
     }
 
     if (!["student", "teacher"].includes(role)) {
-      return res.status(400).json({ message: "Недопустимая роль" });
+      res.status(400).json({ message: "Недопустимая роль" });
+      return;
     }
 
     const existingUser = await User.findOne({ login });
     if (existingUser) {
-      return res.status(400).json({ message: "Логин уже занят" });
+      res.status(400).json({ message: "Логин уже занят" });
+      return;
     }
 
     if (!login.trim()) {
-      return res.status(400).json({ message: "Логин не может быть пустым" });
-    }
-
-    const users = await User.find({});
-    const usedIds = users.map((user) => user.id);
-
-    let newId = 1;
-    while (usedIds.includes(newId)) {
-      newId++;
+      res.status(400).json({ message: "Логин не может быть пустым" });
+      return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({
-      id: newId,
+    const user = new User({
       firstName,
       lastName,
       login,
@@ -43,26 +39,36 @@ export const register = async (req: Request, res: Response): Promise<Response> =
       role,
     });
 
-    await newUser.save();
-    return res.status(201).json({ message: "Пользователь зарегистрирован", user: newUser });
+    await user.save();
+    res.status(201).json({
+      message: "Пользователь успешно зарегистрирован",
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        login: user.login,
+        role: user.role
+      }
+    });
   } catch (error) {
-    if (error instanceof Error) {
-      console.error("Ошибка при регистрации:", error.message);
-      return res.status(500).json({ message: "Ошибка регистрации", error: error.message });
-    } else {
-      console.error("Неизвестная ошибка:", error);
-      return res.status(500).json({ message: "Ошибка регистрации" });
-    }
+    console.error("Ошибка при регистрации:", error);
+    res.status(500).json({ error: "Ошибка при регистрации пользователя" });
   }
 };
 
-export const login = async (req: Request, res: Response): Promise<Response> => {
+export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { login, password } = req.body;
-    const user = await User.findOne({ login });
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: "Неверные учетные данные" });
+    const user = await User.findOne({ login });
+    if (!user) {
+      res.status(401).json({ error: "Неверный логин или пароль" });
+      return;
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      res.status(401).json({ error: "Неверный логин или пароль" });
+      return;
     }
 
     if (!process.env.JWT_SECRET) {
@@ -73,10 +79,19 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
       expiresIn: "1h",
     });
 
-    return res.json({ token });
+    res.json({
+      message: "Успешный вход",
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        login: user.login,
+        role: user.role
+      },
+      token
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Ошибка входа" });
+    console.error("Ошибка при входе:", error);
+    res.status(500).json({ error: "Ошибка при входе" });
   }
 };
 
