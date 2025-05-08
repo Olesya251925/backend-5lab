@@ -4,15 +4,14 @@ dotenv.config();
 const config = {
   port: process.env.PORT || 3004,
   apiVer: "api",
-  lessonServiceUrl: "http://lessons-service",
-  userServiceUrl: "http://user-service:3001/api",
-  mongoURL:
-    process.env.MONGO_URL ||
-    "mongodb://host.docker.internal:27017/?directConnection=true&serverSelectionTimeoutMS=2000",
+  lessonServiceUrl: "http://localhost:3004",
+  userServiceUrl: "http://localhost:3001/api",
+  coursesServiceUrl: "http://localhost:3002/api",
+  mongoURL: process.env.MONGO_URL || "mongodb://mongodb:27017/lesson-service",
   queue: "lesson_queue",
   jwtKey: process.env.JWT_KEY || "olesya",
   rabbitMQUrl: "amqp://guest:guest@rabbitmq:5672",
-  statusServiceUrl: "http://status-service:3007/api/status",
+  statusServiceUrl: "http://localhost:3007/api/status",
 };
 
 export default config;

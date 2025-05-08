@@ -4,6 +4,7 @@ import amqp from "amqplib";
 import config from "./utils/config";
 import axios from "axios";
 import { setStatusRequest } from "./services/setStatusRequest";
+import commentRoutes from "./routes/commentRoutes";
 
 const port = config.port;
 const apiVer = config.apiVer;
@@ -14,6 +15,9 @@ const dbUrl = config.mongoURL;
 const app = express();
 
 app.use(express.json());
+
+// Добавляем прямые HTTP-маршруты
+app.use(`/${apiVer}`, commentRoutes);
 
 async function connectRabbitMQ() {
   let connection;

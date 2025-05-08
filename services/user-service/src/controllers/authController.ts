@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user";
 import { isRegistrationDataValid } from "../utils/validation";
+import config from "../utils/config";
 
 export const register = async (req: Request, res: Response): Promise<Response> => {
   try {
@@ -58,25 +59,85 @@ export const register = async (req: Request, res: Response): Promise<Response> =
 
 export const login = async (req: Request, res: Response): Promise<Response> => {
   try {
+    console.log("\n=== Login attempt ===");
+    console.log("Request body:", req.body);
+    console.log("Environment variables:");
+    console.log("JWT_SECRET:", process.env.JWT_SECRET);
+    console.log("Config values:");
+    console.log("JWT_SECRET from config:", config.JWT_SECRET);
+    
     const { login, password } = req.body;
-    const user = await User.findOne({ login });
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: "Неверные учетные данные" });
+    if (!login || !password) {
+      console.log("Missing credentials - login or password is empty");
+      return res.status(400).json({ message: "Логин и пароль обязательны" });
     }
 
-    if (!process.env.JWT_SECRET) {
+    console.log("Looking for user with login:", login);
+    const user = await User.findOne({ login });
+    console.log("User found:", user ? "Yes" : "No");
+    if (user) {
+      console.log("User details:", {
+        id: user.id,
+        login: user.login,
+        role: user.role,
+        passwordHash: user.password.substring(0, 10) + "..."
+      });
+    }
+
+    if (!user) {
+      return res.status(401).json({ message: "Пользователь не найден" });
+    }
+
+    console.log("Comparing passwords...");
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    console.log("Password is valid:", isPasswordValid);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Неверный пароль" });
+    }
+
+    console.log("Creating token payload...");
+    const tokenPayload = {
+      userId: user.id,
+      login: user.login,
+      role: user.role
+    };
+    console.log("Token payload:", tokenPayload);
+
+    if (!config.JWT_SECRET) {
+      console.error("JWT_SECRET is not defined!");
       throw new Error("JWT_SECRET не определен в файле .env");
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    console.log("Signing token with secret...");
+    console.log("JWT_SECRET length:", config.JWT_SECRET.length);
+    const token = jwt.sign(tokenPayload, config.JWT_SECRET, { expiresIn: "24h" });
+    console.log("Token created successfully");
 
-    return res.json({ token });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Ошибка входа" });
+    console.log("=== Login successful ===");
+    return res.status(200).json({
+      success: true,
+      message: "Успешный вход",
+      token,
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        login: user.login,
+        role: user.role
+      }
+    });
+  } catch (error: unknown) {
+    console.error("\n=== Login error ===");
+    console.error("Error details:", error);
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+    const errorMessage = error instanceof Error ? error.message : "Неизвестная ошибка";
+    console.error("Error message:", errorMessage);
+    return res.status(500).json({ 
+      message: errorMessage,
+      error: error instanceof Error ? error.stack : undefined
+    });
   }
 };
 

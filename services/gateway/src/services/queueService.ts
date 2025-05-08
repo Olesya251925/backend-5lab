@@ -120,7 +120,7 @@ export const sendMessageToQueue = async (
     try {
       const ch = await getChannel();
       await new Promise<void>((resolve, reject) => {
-        ch.assertQueue(queueName, { durable: true }, (err) => {
+        ch.assertQueue(queueName, { durable: false }, (err) => {
           if (err) {
             reject(err);
           } else {
@@ -135,7 +135,7 @@ export const sendMessageToQueue = async (
         }, 15000);
 
         const sent = ch.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), {
-          persistent: true,
+          persistent: false,
         });
 
         if (!sent) {

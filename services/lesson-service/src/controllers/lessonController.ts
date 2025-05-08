@@ -8,6 +8,8 @@ import {
   ILessonUpdateRequest,
   ICourseInfo,
 } from "../types/lesson";
+import axios from "axios";
+import config from "../utils/config";
 
 // Получить все уроки
 export const getLessons = async (req: Request, res: Response) => {
@@ -93,7 +95,18 @@ export const createLesson = async (req: Request, res: Response) => {
     }
 
     const newId = await generateNewId();
-    const newLesson = new Lesson({
+
+    // Получаем информацию о курсах
+    const courses = await Promise.all(
+      courseIds.map(async (courseId: number) => {
+        const response = await axios.get(
+          `${config.coursesServiceUrl}/courses/${courseId}`
+        );
+        return response.data;
+      })
+    );
+
+    const lesson = new Lesson({
       id: newId,
       title,
       content,
@@ -102,11 +115,23 @@ export const createLesson = async (req: Request, res: Response) => {
       order,
     });
 
-    await newLesson.save();
-    res.status(201).json(newLesson);
+    await lesson.save();
+
+    // Преобразуем документ в формат ILessonResponse
+    const lessonResponse: ILessonResponse = {
+      id: lesson.id,
+      title: lesson.title,
+      content: lesson.content,
+      videoUrl: lesson.videoUrl,
+      courseIds: lesson.courseIds,
+      order: lesson.order,
+      courses: courses,
+    };
+
+    res.status(201).json(lessonResponse);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Ошибка при создании урока" });
+    console.error("Error creating lesson:", error);
+    res.status(500).json({ message: "Error creating lesson" });
   }
 };
 

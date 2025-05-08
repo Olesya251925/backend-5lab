@@ -2,6 +2,7 @@ import type { Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import type { AuthRequest } from "../types/auth";
 import { DecodedToken } from "../types/token";
+import config from "../utils/config";
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
@@ -17,7 +18,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as DecodedToken;
+    const decoded = jwt.verify(token, config.JWT_SECRET) as DecodedToken;
 
     req.user = decoded;
     next();
