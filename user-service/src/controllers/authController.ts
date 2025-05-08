@@ -58,27 +58,34 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { login, password } = req.body;
+    console.log('👤 Попытка входа для пользователя:', login);
 
     const user = await User.findOne({ login });
     if (!user) {
+      console.log('❌ Пользователь не найден:', login);
       res.status(401).json({ error: "Неверный логин или пароль" });
       return;
     }
 
+    console.log('✅ Пользователь найден, проверка пароля...');
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      console.log('❌ Неверный пароль для пользователя:', login);
       res.status(401).json({ error: "Неверный логин или пароль" });
       return;
     }
 
     if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET не определен в файле .env');
       throw new Error("JWT_SECRET не определен в файле .env");
     }
 
+    console.log('✅ Пароль верный, генерация токена...');
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
+    console.log('✅ Успешный вход пользователя:', login);
     res.json({
       message: "Успешный вход",
       user: {
@@ -90,7 +97,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       token
     });
   } catch (error) {
-    console.error("Ошибка при входе:", error);
+    console.error("❌ Ошибка при входе:", error);
     res.status(500).json({ error: "Ошибка при входе" });
   }
 };

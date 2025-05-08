@@ -6,9 +6,15 @@ import apiRouter from "./config/routeConfig";
 import { connectQueue } from "./config/rabbitmq";
 
 dotenv.config();
+
+if (!process.env.JWT_SECRET) {
+  console.error("❌ JWT_SECRET не определен в файле .env");
+  process.exit(1);
+}
+
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3001;
 
 connectDB();
 connectQueue();

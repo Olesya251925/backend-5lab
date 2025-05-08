@@ -8,4 +8,4 @@ COPY src ./src
 
 RUN yarn install
 
-CMD ["yarn", "run", "ts-node", "src/server.ts"]
+CMD ["yarn", "run", "start"]

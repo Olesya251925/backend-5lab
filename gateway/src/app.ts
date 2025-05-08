@@ -8,6 +8,7 @@ const STATUS_SERVICE_QUEUE = "status-service";
 
 interface ServiceResponse {
   statusCode: number;
+  correlationId: string;
   data: {
     message?: string;
     error?: string;
@@ -136,16 +137,21 @@ async function waitForResponse(
   const channel = getChannel();
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      channel.deleteQueue(responseQueue);
+      channel.deleteQueue(responseQueue).catch(console.error);
       reject(new Error("Таймаут ожидания ответа"));
     }, 30000);
 
     channel.consume(responseQueue, (msg) => {
       if (msg) {
-        clearTimeout(timeout);
         const response = JSON.parse(msg.content.toString()) as ServiceResponse;
-        channel.deleteQueue(responseQueue);
-        resolve(response);
+        if (response.correlationId === correlationId) {
+          clearTimeout(timeout);
+          channel.ack(msg);
+          setTimeout(() => {
+            channel.deleteQueue(responseQueue).catch(console.error);
+          }, 1000);
+          resolve(response);
+        }
       }
     });
   });

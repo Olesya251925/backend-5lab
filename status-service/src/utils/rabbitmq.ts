@@ -5,24 +5,24 @@ let channel: amqp.Channel;
 export const connectToRabbitMQ = async () => {
   try {
     console.log("🔄 Попытка подключения к RabbitMQ...");
-    const connection = await amqp.connect("amqp://rabbitmq");
+  const connection = await amqp.connect("amqp://rabbitmq");
     console.log("✅ Успешно подключено к RabbitMQ");
     
-    channel = await connection.createChannel();
+  channel = await connection.createChannel();
     console.log("✅ Канал RabbitMQ успешно создан");
 
-    await channel.assertQueue("status-service");
+  await channel.assertQueue("status-service");
     console.log("✅ Очередь 'status-service' успешно объявлена");
 
-    channel.consume("status-service", async (msg) => {
-      if (msg) {
-        const { method, path, body } = JSON.parse(msg.content.toString());
+  channel.consume("status-service", async (msg) => {
+    if (msg) {
+      const { method, path, body } = JSON.parse(msg.content.toString());
         console.log(`📨 Получено сообщение: ${method} ${path}`);
 
-        channel.ack(msg);
+      channel.ack(msg);
         console.log("✅ Сообщение подтверждено (ack)");
-      }
-    });
+    }
+  });
 
     console.log("👂 Начато прослушивание очереди 'status-service'");
   } catch (error) {

@@ -1,5 +1,5 @@
 import amqp from 'amqplib';
-import { register } from '../controllers/authController';
+import { register, login, getUserByLogin, deleteUser } from '../controllers/authController';
 import { Request, Response } from 'express';
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://guest:guest@rabbitmq:5672';
@@ -17,6 +17,7 @@ export async function connectQueue() {
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
 
+    // Создаем очередь для входящих сообщений
     await channel.assertQueue('user-service');
     console.log('✅ Подключено к RabbitMQ');
     console.log('👂 Ожидание сообщений...');
@@ -27,63 +28,87 @@ export async function connectQueue() {
         console.log('📨 Получено сообщение:', message);
 
         try {
-          if (message.method === 'POST' && message.path === '/auth/register') {
-            const req = {
-              body: message.body
-            } as Request;
+          const req = {
+            body: message.body,
+            query: message.query
+          } as Request;
 
-            const res: CustomResponse = {
-              statusCode: 200,
-              data: null,
-              status(code: number) {
-                this.statusCode = code;
-                return this;
-              },
-              json(data: any) {
-                this.data = data;
-                return this;
-              }
-            };
-
-            await register(req, res as unknown as Response);
-
-            if (res.statusCode >= 400) {
-              channel.sendToQueue(
-                message.responseQueue,
-                Buffer.from(JSON.stringify({
-                  statusCode: res.statusCode,
-                  error: res.data?.message || 'Ошибка при обработке запроса',
-                  correlationId: message.correlationId
-                }))
-              );
-            } else {
-              channel.sendToQueue(
-                message.responseQueue,
-                Buffer.from(JSON.stringify({
-                  statusCode: res.statusCode,
-                  data: res.data,
-                  correlationId: message.correlationId
-                }))
-              );
+          const res: CustomResponse = {
+            statusCode: 200,
+            data: null,
+            status(code: number) {
+              this.statusCode = code;
+              return this;
+            },
+            json(data: any) {
+              this.data = data;
+              return this;
             }
+          };
+
+          console.log('🔄 Обработка запроса:', message.method, message.path);
+          
+          if (message.method === 'POST' && message.path === '/auth/register') {
+            console.log('📝 Регистрация пользователя');
+            await register(req, res as unknown as Response);
+          } else if (message.method === 'POST' && message.path === '/auth/login') {
+            console.log('🔑 Вход пользователя');
+            await login(req, res as unknown as Response);
+          } else if (message.method === 'GET' && message.path === '/auth/me') {
+            console.log('👤 Получение данных пользователя');
+            await getUserByLogin(req, res as unknown as Response);
+          } else if (message.method === 'DELETE' && message.path === '/auth/delete') {
+            console.log('🗑️ Удаление пользователя');
+            await deleteUser(req, res as unknown as Response);
+          } else {
+            console.log('❌ Маршрут не найден:', message.path);
+            res.status(404).json({ error: 'Маршрут не найден' });
           }
+
+          console.log('📤 Отправка ответа:', {
+            statusCode: res.statusCode,
+            data: res.data
+          });
+
+          if (res.statusCode >= 400) {
+            channel.sendToQueue(
+              message.responseQueue,
+              Buffer.from(JSON.stringify({
+                statusCode: res.statusCode,
+                error: res.data?.message || 'Ошибка при обработке запроса',
+                correlationId: message.correlationId
+              }))
+            );
+          } else {
+            channel.sendToQueue(
+              message.responseQueue,
+              Buffer.from(JSON.stringify({
+                statusCode: res.statusCode,
+                data: res.data,
+                correlationId: message.correlationId
+              }))
+            );
+          }
+
+          channel.ack(data);
+          console.log('✅ Сообщение обработано и подтверждено');
         } catch (error) {
           console.error('❌ Ошибка при обработке сообщения:', error);
           channel.sendToQueue(
             message.responseQueue,
             Buffer.from(JSON.stringify({
               statusCode: 500,
-              error: 'Ошибка при обработке запроса',
+              error: 'Внутренняя ошибка сервера',
+              details: error instanceof Error ? error.message : 'Неизвестная ошибка',
               correlationId: message.correlationId
             }))
           );
+          channel.ack(data);
         }
-
-        channel.ack(data);
       }
     });
   } catch (error) {
     console.error('❌ Ошибка подключения к RabbitMQ:', error);
-    setTimeout(connectQueue, 5000);
+    process.exit(1);
   }
 } 
