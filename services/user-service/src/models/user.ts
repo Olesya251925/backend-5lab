@@ -9,6 +9,7 @@ export interface IUser extends Document {
   role: "student" | "teacher";
 }
 
+// Схема
 const UserSchema = new Schema<IUser>({
   id: { type: Number, required: true, unique: true },
   firstName: { type: String, required: true },
@@ -18,14 +19,12 @@ const UserSchema = new Schema<IUser>({
   role: { type: String, enum: ["student", "teacher"], required: true },
 });
 
-// Удаляем все существующие модели User
-Object.keys(mongoose.models).forEach(modelName => {
-  if (modelName === 'User') {
-    delete mongoose.models[modelName];
-  }
-});
+// Удаление дублирующей модели
+if (mongoose.models.User) {
+  delete mongoose.models.User;
+}
 
-// Создаем модель с явным указанием имени коллекции
-const User = mongoose.model<IUser>('User', UserSchema, 'users');
+// Создание модели с явным указанием базы данных и коллекции
+const User = mongoose.model<IUser>("User", UserSchema, "users");
 
 export default User;

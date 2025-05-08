@@ -6,11 +6,9 @@ import axios from "axios";
 import { setStatusRequest } from "./services/setStatusRequest";
 import authRoutes from "./routes/authRoutes";
 import userRoutes from "./routes/userRoutes";
-import User from "./models/user";
 
 const port = config.port;
 const userQueue = config.queue;
-const dbUrl = config.mongoURL;
 
 const app = express();
 
@@ -150,22 +148,15 @@ async function connectRabbitMQ() {
 const connectDB = async (retryCount = 0) => {
   const maxRetries = 5;
   try {
-    // Убедимся, что URL содержит имя базы данных
-    const mongoUrl = dbUrl!.includes('/backend') ? dbUrl : `${dbUrl}/backend`;
-    
-    await mongoose.connect(mongoUrl, {
-      autoCreate: false,
-      autoIndex: false,
-      dbName: 'backend'
-    });
-    console.log("Connected to MongoDB");
+    await mongoose.connect("mongodb://localhost:27017/backend");
+    console.log("Connected to MongoDB backend database");
 
-    // Сначала запускаем HTTP-сервер
+    // Запуск HTTP-сервера
     app.listen(port, () => {
       console.log(`User Service запущен на порту: ${port}`);
     });
 
-    // Затем подключаемся к RabbitMQ
+    // Подключение к RabbitMQ
     await connectRabbitMQ().catch((err) => {
       console.error("Ошибка подключения к RabbitMQ:", err);
       console.log("Сервис продолжит работу только с HTTP запросами");
