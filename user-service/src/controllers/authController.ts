@@ -8,24 +8,29 @@ import { isRegistrationDataValid } from "../utils/validation";
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { firstName, lastName, login, password, role } = req.body;
+    console.log('📝 Попытка регистрации пользователя:', { login, role });
 
     if (!isRegistrationDataValid(firstName, lastName, login, password, role)) {
+      console.log('❌ Не все поля заполнены');
       res.status(400).json({ message: "Все поля обязательны для заполнения" });
       return;
     }
 
     if (!["student", "teacher"].includes(role)) {
+      console.log('❌ Недопустимая роль:', role);
       res.status(400).json({ message: "Недопустимая роль" });
       return;
     }
 
     const existingUser = await User.findOne({ login });
     if (existingUser) {
-      res.status(400).json({ message: "Логин уже занят" });
+      console.log('❌ Логин уже занят:', login);
+      res.status(400).json({ message: `Логин ${login} уже существует` });
       return;
     }
 
     if (!login.trim()) {
+      console.log('❌ Пустой логин');
       res.status(400).json({ message: "Логин не может быть пустым" });
       return;
     }
@@ -39,18 +44,16 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       role,
     });
 
-    await user.save();
-    res.status(201).json({
-      message: "Пользователь успешно зарегистрирован",
-      user: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        login: user.login,
-        role: user.role
-      }
-    });
+    try {
+      await user.save();
+      console.log('✅ Пользователь успешно сохранен в БД:', { login, role });
+      res.status(200).json({ message: "Пользователь успешно зарегистрирован" });
+    } catch (saveError) {
+      console.error('❌ Ошибка при сохранении пользователя:', saveError);
+      res.status(400).json({ message: "Ошибка при сохранении пользователя" });
+    }
   } catch (error) {
-    console.error("Ошибка при регистрации:", error);
+    console.error("❌ Ошибка при регистрации:", error);
     res.status(500).json({ error: "Ошибка при регистрации пользователя" });
   }
 };
@@ -88,12 +91,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     console.log('✅ Успешный вход пользователя:', login);
     res.json({
       message: "Успешный вход",
-      user: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        login: user.login,
-        role: user.role
-      },
       token
     });
   } catch (error) {
@@ -105,24 +102,28 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 export const getUserByLogin = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { login } = req.query;
+    console.log('Получен запрос на получение данных пользователя. Query параметры:', req.query);
 
     if (!login) {
+      console.log('Ошибка: логин не предоставлен');
       return res.status(400).json({ message: "Логин не предоставлен" });
     }
 
     const user = await User.findOne({ login }).select("-password");
     if (!user) {
+      console.log('Ошибка: пользователь не найден для логина:', login);
       return res.status(404).json({ message: "Пользователь не найден" });
     }
 
-    return res.json({
+    console.log('Успешно найден пользователь:', user);
+    return res.status(200).json({
       firstName: user.firstName,
       lastName: user.lastName,
       login: user.login,
       role: user.role,
     });
   } catch (error) {
-    console.error(error);
+    console.error('Ошибка при получении данных:', error);
     return res.status(500).json({ message: "Ошибка получения данных" });
   }
 };

@@ -9,7 +9,7 @@ const STATUS_SERVICE_QUEUE = "status-service";
 interface ServiceResponse {
   statusCode: number;
   correlationId: string;
-  data: {
+  data?: {
     message?: string;
     error?: string;
     user?: {
@@ -19,6 +19,7 @@ interface ServiceResponse {
       role: string;
     };
   };
+  error?: string;
 }
 
 const app = express();
@@ -90,6 +91,7 @@ app.all("/api/*", async (req, res) => {
       method,
       path: path.replace("/api", ""),
       body,
+      query: req.query,
       correlationId,
       responseQueue,
       timestamp: new Date().toISOString(),
@@ -106,7 +108,13 @@ app.all("/api/*", async (req, res) => {
     const processingTime = Date.now() - startTime;
 
     console.log(`\n✅ Получен ответ (${processingTime}ms):`, response);
-    res.status(response.statusCode).json(response.data);
+    
+    // Проверяем наличие ошибки в ответе
+    if (response.error) {
+      res.status(response.statusCode).json({ error: response.error });
+    } else {
+      res.status(response.statusCode).json(response.data);
+    }
   } catch (error: unknown) {
     console.error(`\n❌ Ошибка при обработке запроса:`, error);
     res.status(500).json({
