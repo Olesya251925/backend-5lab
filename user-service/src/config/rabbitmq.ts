@@ -23,13 +23,13 @@ interface RabbitMQMessage {
 
 export async function connectQueue() {
   try {
-    console.log("🔄 Попытка подключения к RabbitMQ...");
+    console.log("Попытка подключения к RabbitMQ...");
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
 
     await channel.assertQueue("user-service");
-    console.log("✅ Подключено к RabbitMQ");
-    console.log("👂 Ожидание сообщений...");
+    console.log("Подключено к RabbitMQ");
+    console.log("Ожидание сообщений...");
 
     channel.consume("user-service", async (data) => {
       if (data) {
