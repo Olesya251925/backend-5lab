@@ -1,14 +1,13 @@
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
-import authRoutes from "./routes/authRoutes";
-import userRoutes from "./routes/userRoutes";
+import tagRoutes from "./routes/tagRoutes";
 import { connectQueue } from "./config/rabbitmq";
 import connectDB from "./config/database";
 import { Request, Response } from "express";
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3003;
 
 app.use(cors());
 app.use(express.json());
@@ -23,12 +22,11 @@ mongoose
     console.log("Попытка подключения к MongoDB...");
     console.log("MongoDB успешно подключен");
     console.log("База данных: backend-5lab");
-    console.log("Коллекция: users");
+    console.log("Коллекция: tags");
   })
   .catch((error: Error) => console.error("Ошибка подключения к MongoDB:", error));
 
-app.use("/auth", authRoutes);
-app.use("/users", userRoutes);
+app.use("/tags", tagRoutes);
 
 app.use((err: Error, req: Request, res: Response) => {
   console.error(err.stack);

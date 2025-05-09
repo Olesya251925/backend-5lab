@@ -4,10 +4,15 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { isRegistrationDataValid } from "../utils/validation";
 
+async function getNextUserId(): Promise<number> {
+  const lastUser = await UserModel.findOne().sort({ id: -1 }).limit(1);
+  return lastUser ? lastUser.id + 1 : 1;
+}
+
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id, firstName, lastName, login, password, role } = req.body;
-    console.log("📝 Попытка регистрации пользователя:", { id, login, role });
+    const { firstName, lastName, login, password, role } = req.body;
+    console.log("📝 Попытка регистрации пользователя:", { login, role });
 
     if (!isRegistrationDataValid(firstName, lastName, login, password, role)) {
       console.log("❌ Не все поля заполнены");
@@ -21,10 +26,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const existingUser = await UserModel.findOne({ $or: [{ login }, { id }] });
+    const existingUser = await UserModel.findOne({ login });
     if (existingUser) {
-      console.log("❌ Логин или ID уже занят:", { login, id });
-      res.status(400).json({ message: `Пользователь с таким логином или ID уже существует` });
+      console.log("❌ Логин уже занят:", login);
+      res.status(400).json({ message: `Пользователь с таким логином уже существует` });
       return;
     }
 
@@ -34,9 +39,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const nextUserId = await getNextUserId();
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new UserModel({
-      id,
+      id: nextUserId,
       firstName,
       lastName,
       login,
@@ -46,7 +52,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     try {
       await user.save();
-      console.log("✅ Пользователь успешно сохранен в БД:", { id, login, role });
+      console.log("✅ Пользователь успешно сохранен в БД:", { id: nextUserId, login, role });
       res.status(200).json({ message: "Пользователь успешно зарегистрирован" });
     } catch (saveError) {
       console.error("❌ Ошибка при сохранении пользователя:", saveError);

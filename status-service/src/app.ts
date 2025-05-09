@@ -11,12 +11,12 @@ app.use(express.json());
 
 connectToRabbitMQ()
   .then(() => {
-    console.log("✅ RabbitMQ подключен");
+    console.log("RabbitMQ подключен");
     setupStatusHandlers();
-    console.log("✅ Обработчики статусов настроены");
+    console.log("Обработчики статусов настроены");
   })
   .catch((err) => {
-    console.error("❌ Ошибка подключения к RabbitMQ:", err);
+    console.error("Ошибка подключения к RabbitMQ:", err);
   });
 
 app.use("/status", statusRoutes);

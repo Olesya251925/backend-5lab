@@ -5,6 +5,7 @@ import { connectToRabbitMQ, getChannel } from "./utils/rabbitmq";
 // Константы для имен очередей
 const USER_SERVICE_QUEUE = "user-service";
 const STATUS_SERVICE_QUEUE = "status-service";
+const TAG_SERVICE_QUEUE = "tag-service";
 
 interface ServiceResponse {
   statusCode: number;
@@ -30,26 +31,22 @@ app.use(express.json());
 
 // Подключение к RabbitMQ
 connectToRabbitMQ()
-  .then(() => {
+  .then(async () => {
     console.log("✅ Gateway успешно подключен к RabbitMQ");
     isRabbitMQReady = true;
 
     // Создаем очереди для сервисов
     const channel = getChannel();
-    channel
-      .assertQueue(USER_SERVICE_QUEUE, { durable: true })
-      .then(() => {
-        console.log(`✅ Очередь ${USER_SERVICE_QUEUE} создана`);
-        return channel.checkQueue(USER_SERVICE_QUEUE);
-      })
-      .then((queueInfo) => {
-        console.log(`📊 Информация об очереди ${USER_SERVICE_QUEUE}:`);
-        console.log(`   - Количество сообщений: ${queueInfo.messageCount}`);
-        console.log(`   - Количество потребителей: ${queueInfo.consumerCount}`);
-      })
-      .catch((err) => {
-        console.error("❌ Ошибка при работе с очередью:", err);
-      });
+    await channel.assertQueue(USER_SERVICE_QUEUE, { durable: true });
+    console.log(`✅ Очередь ${USER_SERVICE_QUEUE} создана`);
+    
+    await channel.assertQueue(TAG_SERVICE_QUEUE, { durable: true });
+    console.log(`✅ Очередь ${TAG_SERVICE_QUEUE} создана`);
+
+    const queueInfo = await channel.checkQueue(USER_SERVICE_QUEUE);
+    console.log(`📊 Информация об очереди ${USER_SERVICE_QUEUE}:`);
+    console.log(`   - Количество сообщений: ${queueInfo.messageCount}`);
+    console.log(`   - Количество потребителей: ${queueInfo.consumerCount}`);
   })
   .catch((err) => {
     console.error("❌ Ошибка подключения к RabbitMQ:", err);
@@ -98,7 +95,22 @@ app.all("/api/*", async (req, res) => {
     };
 
     // Используем константу для имени очереди
-    const targetQueue = service === "user" ? USER_SERVICE_QUEUE : STATUS_SERVICE_QUEUE;
+    let targetQueue = "unknown";
+    switch (service) {
+      case "user":
+        targetQueue = USER_SERVICE_QUEUE;
+        break;
+      case "status":
+        targetQueue = STATUS_SERVICE_QUEUE;
+        break;
+      case "tag":
+        targetQueue = TAG_SERVICE_QUEUE;
+        break;
+    }
+
+    if (targetQueue === "unknown") {
+      throw new Error("Неизвестный сервис");
+    }
 
     channel.sendToQueue(targetQueue, Buffer.from(JSON.stringify(message)));
     console.log(`✅ Сообщение отправлено в очередь ${targetQueue}`);
@@ -126,10 +138,13 @@ app.all("/api/*", async (req, res) => {
 
 // Упрощенная функция определения сервиса
 function determineService(path: string): string {
-  if (path.startsWith("/api/auth") || path.startsWith("/api/users")) {
+  const normalizedPath = path.toLowerCase();
+  if (normalizedPath.includes("/auth") || normalizedPath.includes("/users")) {
     return "user";
-  } else if (path.startsWith("/api/status")) {
+  } else if (normalizedPath.includes("/status")) {
     return "status";
+  } else if (normalizedPath.includes("/tags")) {
+    return "tag";
   }
   return "unknown";
 }

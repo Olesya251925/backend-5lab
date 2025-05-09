@@ -62,6 +62,25 @@ services:
     networks:
       - app-network
 
+  tag-service:
+    build:
+      context: ./tag-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      - PORT=3003
+      - JWT_SECRET=olesya251925
+      - MONGO_URI=mongodb://mongo:27017/backend-5lab
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    networks:
+      - app-network
+
   status-service:
     build:
       context: ./status-service

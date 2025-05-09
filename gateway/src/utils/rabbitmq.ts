@@ -6,7 +6,7 @@ let isConnecting = false;
 
 export const connectToRabbitMQ = async (retries = 5, delay = 5000): Promise<void> => {
   if (isConnecting) {
-    console.log("🔄 Подключение уже в процессе...");
+    console.log("Подключение уже в процессе...");
     return;
   }
 
@@ -15,44 +15,43 @@ export const connectToRabbitMQ = async (retries = 5, delay = 5000): Promise<void
   for (let i = 0; i < retries; i++) {
     try {
       const rabbitmqUrl = process.env.RABBITMQ_URL || "amqp://rabbitmq";
-      console.log(`\n🔄 Попытка подключения к RabbitMQ:`);
+      console.log(`\n Попытка подключения к RabbitMQ:`);
       console.log(`   URL: ${rabbitmqUrl}`);
       console.log(`   Попытка: ${i + 1}/${retries}`);
 
       connection = await amqp.connect(rabbitmqUrl);
-      console.log("✅ Успешно подключено к RabbitMQ");
+      console.log("Успешно подключено к RabbitMQ");
 
       channel = await connection.createChannel();
-      console.log("✅ Канал успешно создан");
+      console.log("Канал успешно создан");
 
-      // Настройка обработчиков событий
       connection.on("error", (err) => {
-        console.error("❌ Ошибка соединения с RabbitMQ:", err);
+        console.error("Ошибка соединения с RabbitMQ:", err);
         handleConnectionError();
       });
 
       connection.on("close", () => {
-        console.log("⚠️ Соединение с RabbitMQ закрыто");
+        console.log("Соединение с RabbitMQ закрыто");
         handleConnectionError();
       });
 
       channel.on("error", (err) => {
-        console.error("❌ Ошибка канала RabbitMQ:", err);
+        console.error("Ошибка канала RabbitMQ:", err);
         handleChannelError();
       });
 
       channel.on("close", () => {
-        console.log("⚠️ Канал RabbitMQ закрыт");
+        console.log("Канал RabbitMQ закрыт");
         handleChannelError();
       });
 
       isConnecting = false;
       return;
     } catch (error) {
-      console.error(`❌ Ошибка подключения к RabbitMQ (попытка ${i + 1}/${retries}):`, error);
+      console.error(`Ошибка подключения к RabbitMQ (попытка ${i + 1}/${retries}):`, error);
 
       if (i < retries - 1) {
-        console.log(`⏳ Ожидание ${delay / 1000} секунд перед следующей попыткой...`);
+        console.log(`Ожидание ${delay / 1000} секунд перед следующей попыткой...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         isConnecting = false;
@@ -77,10 +76,10 @@ const handleChannelError = () => {
       .createChannel()
       .then((newChannel) => {
         channel = newChannel;
-        console.log("✅ Канал успешно пересоздан");
+        console.log("Канал успешно пересоздан");
       })
       .catch((err) => {
-        console.error("❌ Ошибка при пересоздании канала:", err);
+        console.error("Ошибка при пересоздании канала:", err);
         handleConnectionError();
       });
   }
