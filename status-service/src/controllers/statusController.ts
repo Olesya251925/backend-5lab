@@ -41,7 +41,6 @@ export const setupStatusHandlers = () => {
           response = { success: false, error: "Unknown action" };
       }
 
-      // Отправляем ответ в очередь ответов
       channel.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(response)), {
         correlationId,
       });

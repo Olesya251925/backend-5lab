@@ -50,7 +50,7 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
       firstName: user.firstName,
       lastName: user.lastName,
       login: user.login,
-      role: user.role
+      role: user.role,
     });
   } catch (error) {
     console.error(error);
@@ -78,7 +78,11 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-export const handleUserRequest = async (method: string, path: string, body: UserData | LoginCredentials): Promise<ApiResponse> => {
+export const handleUserRequest = async (
+  method: string,
+  path: string,
+  body: UserData | LoginCredentials,
+): Promise<ApiResponse> => {
   console.log(`🔄 Обработка запроса: ${method} ${path}`);
 
   switch (path) {
@@ -93,7 +97,7 @@ export const handleUserRequest = async (method: string, path: string, body: User
       }
       break;
   }
-  
+
   return {
     status: 404,
     data: { error: "Маршрут не найден" },
@@ -104,9 +108,8 @@ const registerUser = async (userData: UserData): Promise<ApiResponse> => {
   try {
     console.log("📝 Регистрация нового пользователя");
 
-    // Проверяем, существует ли пользователь
-    const existingUser = await UserModel.findOne({ 
-      $or: [{ login: userData.login }, { id: userData.id }] 
+    const existingUser = await UserModel.findOne({
+      $or: [{ login: userData.login }, { id: userData.id }],
     });
     if (existingUser) {
       return {
@@ -115,10 +118,8 @@ const registerUser = async (userData: UserData): Promise<ApiResponse> => {
       };
     }
 
-    // Хешируем пароль
     const hashedPassword = await bcrypt.hash(userData.password, 10);
 
-    // Создаем нового пользователя
     const user = new UserModel({
       id: userData.id,
       firstName: userData.firstName,
@@ -129,7 +130,7 @@ const registerUser = async (userData: UserData): Promise<ApiResponse> => {
     });
 
     await user.save();
-    console.log("✅ Пользователь успешно зарегистрирован");
+    console.log("Пользователь успешно зарегистрирован");
 
     return {
       status: 201,
@@ -145,7 +146,7 @@ const registerUser = async (userData: UserData): Promise<ApiResponse> => {
       },
     };
   } catch (error) {
-    console.error("❌ Ошибка при регистрации пользователя:", error);
+    console.error("Ошибка при регистрации пользователя:", error);
     return {
       status: 500,
       data: { error: "Ошибка при регистрации пользователя" },
@@ -155,7 +156,7 @@ const registerUser = async (userData: UserData): Promise<ApiResponse> => {
 
 const loginUser = async (credentials: LoginCredentials): Promise<ApiResponse> => {
   try {
-    console.log("🔑 Попытка входа пользователя");
+    console.log("Попытка входа пользователя");
 
     const user = await UserModel.findOne({ login: credentials.login });
     if (!user) {
@@ -173,7 +174,7 @@ const loginUser = async (credentials: LoginCredentials): Promise<ApiResponse> =>
       };
     }
 
-    console.log("✅ Пользователь успешно вошел в систему");
+    console.log("Пользователь успешно вошел в систему");
 
     return {
       status: 200,
@@ -189,7 +190,7 @@ const loginUser = async (credentials: LoginCredentials): Promise<ApiResponse> =>
       },
     };
   } catch (error) {
-    console.error("❌ Ошибка при входе пользователя:", error);
+    console.error("Ошибка при входе пользователя:", error);
     return {
       status: 500,
       data: { error: "Ошибка при входе пользователя" },

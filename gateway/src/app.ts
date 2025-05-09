@@ -2,7 +2,6 @@ import express, { RequestHandler } from "express";
 import cors from "cors";
 import { connectToRabbitMQ, getChannel } from "./utils/rabbitmq";
 
-// Константы для имен очередей
 const USER_SERVICE_QUEUE = "user-service";
 const STATUS_SERVICE_QUEUE = "status-service";
 const TAG_SERVICE_QUEUE = "tag-service";
@@ -29,22 +28,20 @@ let isRabbitMQReady = false;
 app.use(cors());
 app.use(express.json());
 
-// Подключение к RabbitMQ
 connectToRabbitMQ()
   .then(async () => {
-    console.log("✅ Gateway успешно подключен к RabbitMQ");
+    console.log("Gateway успешно подключен к RabbitMQ");
     isRabbitMQReady = true;
 
-    // Создаем очереди для сервисов
     const channel = getChannel();
     await channel.assertQueue(USER_SERVICE_QUEUE, { durable: true });
-    console.log(`✅ Очередь ${USER_SERVICE_QUEUE} создана`);
-    
+    console.log(`Очередь ${USER_SERVICE_QUEUE} создана`);
+
     await channel.assertQueue(TAG_SERVICE_QUEUE, { durable: true });
-    console.log(`✅ Очередь ${TAG_SERVICE_QUEUE} создана`);
+    console.log(`Очередь ${TAG_SERVICE_QUEUE} создана`);
 
     const queueInfo = await channel.checkQueue(USER_SERVICE_QUEUE);
-    console.log(`📊 Информация об очереди ${USER_SERVICE_QUEUE}:`);
+    console.log(`Информация об очереди ${USER_SERVICE_QUEUE}:`);
     console.log(`   - Количество сообщений: ${queueInfo.messageCount}`);
     console.log(`   - Количество потребителей: ${queueInfo.consumerCount}`);
   })
@@ -52,7 +49,6 @@ connectToRabbitMQ()
     console.error("❌ Ошибка подключения к RabbitMQ:", err);
   });
 
-// Middleware для проверки готовности RabbitMQ
 const checkRabbitMQReady: RequestHandler = (req, res, next) => {
   if (!isRabbitMQReady) {
     console.log("⏳ Ожидание подключения к RabbitMQ...");
@@ -64,26 +60,23 @@ const checkRabbitMQReady: RequestHandler = (req, res, next) => {
 
 app.use("/api/*", checkRabbitMQReady);
 
-// Маршрутизация запросов
 app.all("/api/*", async (req, res) => {
   const { method, path, body } = req;
   const service = determineService(path);
   const startTime = Date.now();
 
-  console.log(`\n🔄 [${new Date().toISOString()}] Начало обработки запроса:`);
-  console.log(`📨 Метод: ${method}, Путь: ${path}`);
-  console.log(`📝 Тело запроса:`, body);
-  console.log(`🎯 Сервис: ${service}`);
+  console.log(`\n${new Date().toISOString()}] Начало обработки запроса:`);
+  console.log(`Метод: ${method}, Путь: ${path}`);
+  console.log(`Тело запроса:`, body);
+  console.log(`Сервис: ${service}`);
 
   try {
     const channel = getChannel();
     const correlationId = generateCorrelationId();
 
-    // Создаем очередь для ответа
     const responseQueue = `response-${correlationId}`;
     await channel.assertQueue(responseQueue, { exclusive: true });
 
-    // Отправляем сообщение
     const message = {
       method,
       path: path.replace("/api", ""),
@@ -94,7 +87,6 @@ app.all("/api/*", async (req, res) => {
       timestamp: new Date().toISOString(),
     };
 
-    // Используем константу для имени очереди
     let targetQueue = "unknown";
     switch (service) {
       case "user":
@@ -113,22 +105,20 @@ app.all("/api/*", async (req, res) => {
     }
 
     channel.sendToQueue(targetQueue, Buffer.from(JSON.stringify(message)));
-    console.log(`✅ Сообщение отправлено в очередь ${targetQueue}`);
+    console.log(`Сообщение отправлено в очередь ${targetQueue}`);
 
-    // Ожидание ответа
     const response = await waitForResponse(correlationId, responseQueue);
     const processingTime = Date.now() - startTime;
 
-    console.log(`\n✅ Получен ответ (${processingTime}ms):`, response);
-    
-    // Проверяем наличие ошибки в ответе
+    console.log(`\n Получен ответ (${processingTime}ms):`, response);
+
     if (response.error) {
       res.status(response.statusCode).json({ error: response.error });
     } else {
       res.status(response.statusCode).json(response.data);
     }
   } catch (error: unknown) {
-    console.error(`\n❌ Ошибка при обработке запроса:`, error);
+    console.error(`\n Ошибка при обработке запроса:`, error);
     res.status(500).json({
       error: "Внутренняя ошибка сервера",
       details: error instanceof Error ? error.message : "Неизвестная ошибка",
@@ -136,7 +126,6 @@ app.all("/api/*", async (req, res) => {
   }
 });
 
-// Упрощенная функция определения сервиса
 function determineService(path: string): string {
   const normalizedPath = path.toLowerCase();
   if (normalizedPath.includes("/auth") || normalizedPath.includes("/users")) {

@@ -14,7 +14,7 @@ interface CustomResponse {
 
 export async function connectQueue() {
   try {
-    console.log('🔄 Попытка подключения к RabbitMQ...');
+    console.log('Попытка подключения к RabbitMQ...');
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
 
@@ -25,7 +25,7 @@ export async function connectQueue() {
     channel.consume('tag-service', async (data) => {
       if (data) {
         const message = JSON.parse(data.content.toString());
-        console.log('📨 Получено сообщение:', JSON.stringify(message, null, 2));
+        console.log('Получено сообщение:', JSON.stringify(message, null, 2));
 
         const req = {
           method: message.method,
