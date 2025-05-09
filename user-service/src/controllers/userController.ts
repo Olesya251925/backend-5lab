@@ -1,42 +1,71 @@
 import type { Response } from "express";
-import { User } from "../models/user";
+import UserModel from "../models/user";
 import type { AuthRequest } from "../types/auth";
 import bcrypt from "bcrypt";
 
-export const getProfile = async (
-  req: AuthRequest,
-  res: Response,
-): Promise<void> => {
+interface UserData {
+  id: number;
+  firstName: string;
+  lastName: string;
+  login: string;
+  password: string;
+  role: "student" | "teacher";
+}
+
+interface LoginCredentials {
+  login: string;
+  password: string;
+}
+
+interface ApiResponse {
+  status: number;
+  data: {
+    message?: string;
+    error?: string;
+    user?: {
+      id: number;
+      firstName: string;
+      lastName: string;
+      login: string;
+      role: "student" | "teacher";
+    };
+  };
+}
+
+export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user?.id) {
       res.status(401).json({ message: "Пользователь не авторизован" });
       return;
     }
 
-    const user = await User.findById(req.user.id).select("-password");
+    const user = await UserModel.findOne({ id: req.user.id }).select("-password");
     if (!user) {
       res.status(404).json({ message: "Пользователь не найден" });
       return;
     }
 
-    res.json(user);
+    res.json({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      login: user.login,
+      role: user.role
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Ошибка получения данных" });
   }
 };
 
-export const deleteUser = async (
-  req: AuthRequest,
-  res: Response,
-): Promise<void> => {
+export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user?.id) {
       res.status(401).json({ message: "Пользователь не авторизован" });
       return;
     }
 
-    const deletedUser = await User.findByIdAndDelete(req.user.id);
+    const deletedUser = await UserModel.findOneAndDelete({ id: req.user.id });
     if (!deletedUser) {
       res.status(404).json({ message: "Пользователь не найден" });
       return;
@@ -49,38 +78,40 @@ export const deleteUser = async (
   }
 };
 
-export const handleUserRequest = async (method: string, path: string, body: any) => {
+export const handleUserRequest = async (method: string, path: string, body: UserData | LoginCredentials): Promise<ApiResponse> => {
   console.log(`🔄 Обработка запроса: ${method} ${path}`);
 
   switch (path) {
     case "/auth/register":
       if (method === "POST") {
-        return await registerUser(body);
+        return await registerUser(body as UserData);
       }
       break;
     case "/auth/login":
       if (method === "POST") {
-        return await loginUser(body);
+        return await loginUser(body as LoginCredentials);
       }
       break;
-    default:
-      return {
-        status: 404,
-        data: { error: "Маршрут не найден" }
-      };
   }
+  
+  return {
+    status: 404,
+    data: { error: "Маршрут не найден" },
+  };
 };
 
-const registerUser = async (userData: any) => {
+const registerUser = async (userData: UserData): Promise<ApiResponse> => {
   try {
     console.log("📝 Регистрация нового пользователя");
-    
+
     // Проверяем, существует ли пользователь
-    const existingUser = await User.findOne({ login: userData.login });
+    const existingUser = await UserModel.findOne({ 
+      $or: [{ login: userData.login }, { id: userData.id }] 
+    });
     if (existingUser) {
       return {
         status: 400,
-        data: { error: "Пользователь с таким логином уже существует" }
+        data: { error: "Пользователь с таким логином или ID уже существует" },
       };
     }
 
@@ -88,12 +119,13 @@ const registerUser = async (userData: any) => {
     const hashedPassword = await bcrypt.hash(userData.password, 10);
 
     // Создаем нового пользователя
-    const user = new User({
+    const user = new UserModel({
+      id: userData.id,
       firstName: userData.firstName,
       lastName: userData.lastName,
       login: userData.login,
       password: hashedPassword,
-      role: userData.role
+      role: userData.role,
     });
 
     await user.save();
@@ -108,28 +140,28 @@ const registerUser = async (userData: any) => {
           firstName: user.firstName,
           lastName: user.lastName,
           login: user.login,
-          role: user.role
-        }
-      }
+          role: user.role,
+        },
+      },
     };
   } catch (error) {
     console.error("❌ Ошибка при регистрации пользователя:", error);
     return {
       status: 500,
-      data: { error: "Ошибка при регистрации пользователя" }
+      data: { error: "Ошибка при регистрации пользователя" },
     };
   }
 };
 
-const loginUser = async (credentials: any) => {
+const loginUser = async (credentials: LoginCredentials): Promise<ApiResponse> => {
   try {
     console.log("🔑 Попытка входа пользователя");
-    
-    const user = await User.findOne({ login: credentials.login });
+
+    const user = await UserModel.findOne({ login: credentials.login });
     if (!user) {
       return {
         status: 401,
-        data: { error: "Неверный логин или пароль" }
+        data: { error: "Неверный логин или пароль" },
       };
     }
 
@@ -137,7 +169,7 @@ const loginUser = async (credentials: any) => {
     if (!isValidPassword) {
       return {
         status: 401,
-        data: { error: "Неверный логин или пароль" }
+        data: { error: "Неверный логин или пароль" },
       };
     }
 
@@ -152,15 +184,15 @@ const loginUser = async (credentials: any) => {
           firstName: user.firstName,
           lastName: user.lastName,
           login: user.login,
-          role: user.role
-        }
-      }
+          role: user.role,
+        },
+      },
     };
   } catch (error) {
     console.error("❌ Ошибка при входе пользователя:", error);
     return {
       status: 500,
-      data: { error: "Ошибка при входе пользователя" }
+      data: { error: "Ошибка при входе пользователя" },
     };
   }
 };

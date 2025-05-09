@@ -1,42 +1,42 @@
 import type { Request, Response } from "express";
-import { User } from "../models/user";
-import type { AuthRequest } from "../types/auth";
+import UserModel from "../models/user";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { isRegistrationDataValid } from "../utils/validation";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { firstName, lastName, login, password, role } = req.body;
-    console.log('📝 Попытка регистрации пользователя:', { login, role });
+    const { id, firstName, lastName, login, password, role } = req.body;
+    console.log("📝 Попытка регистрации пользователя:", { id, login, role });
 
     if (!isRegistrationDataValid(firstName, lastName, login, password, role)) {
-      console.log('❌ Не все поля заполнены');
+      console.log("❌ Не все поля заполнены");
       res.status(400).json({ message: "Все поля обязательны для заполнения" });
       return;
     }
 
     if (!["student", "teacher"].includes(role)) {
-      console.log('❌ Недопустимая роль:', role);
+      console.log("❌ Недопустимая роль:", role);
       res.status(400).json({ message: "Недопустимая роль" });
       return;
     }
 
-    const existingUser = await User.findOne({ login });
+    const existingUser = await UserModel.findOne({ $or: [{ login }, { id }] });
     if (existingUser) {
-      console.log('❌ Логин уже занят:', login);
-      res.status(400).json({ message: `Логин ${login} уже существует` });
+      console.log("❌ Логин или ID уже занят:", { login, id });
+      res.status(400).json({ message: `Пользователь с таким логином или ID уже существует` });
       return;
     }
 
     if (!login.trim()) {
-      console.log('❌ Пустой логин');
+      console.log("❌ Пустой логин");
       res.status(400).json({ message: "Логин не может быть пустым" });
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({
+    const user = new UserModel({
+      id,
       firstName,
       lastName,
       login,
@@ -46,10 +46,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     try {
       await user.save();
-      console.log('✅ Пользователь успешно сохранен в БД:', { login, role });
+      console.log("✅ Пользователь успешно сохранен в БД:", { id, login, role });
       res.status(200).json({ message: "Пользователь успешно зарегистрирован" });
     } catch (saveError) {
-      console.error('❌ Ошибка при сохранении пользователя:', saveError);
+      console.error("❌ Ошибка при сохранении пользователя:", saveError);
       res.status(400).json({ message: "Ошибка при сохранении пользователя" });
     }
   } catch (error) {
@@ -61,37 +61,37 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { login, password } = req.body;
-    console.log('👤 Попытка входа для пользователя:', login);
+    console.log("👤 Попытка входа для пользователя:", login);
 
-    const user = await User.findOne({ login });
+    const user = await UserModel.findOne({ login });
     if (!user) {
-      console.log('❌ Пользователь не найден:', login);
+      console.log("❌ Пользователь не найден:", login);
       res.status(401).json({ error: "Неверный логин или пароль" });
       return;
     }
 
-    console.log('✅ Пользователь найден, проверка пароля...');
+    console.log("✅ Пользователь найден, проверка пароля...");
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      console.log('❌ Неверный пароль для пользователя:', login);
+      console.log("❌ Неверный пароль для пользователя:", login);
       res.status(401).json({ error: "Неверный логин или пароль" });
       return;
     }
 
     if (!process.env.JWT_SECRET) {
-      console.error('❌ JWT_SECRET не определен в файле .env');
+      console.error("❌ JWT_SECRET не определен в файле .env");
       throw new Error("JWT_SECRET не определен в файле .env");
     }
 
-    console.log('✅ Пароль верный, генерация токена...');
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+    console.log("✅ Пароль верный, генерация токена...");
+    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
-    console.log('✅ Успешный вход пользователя:', login);
+    console.log("✅ Успешный вход пользователя:", login);
     res.json({
       message: "Успешный вход",
-      token
+      token,
     });
   } catch (error) {
     console.error("❌ Ошибка при входе:", error);
@@ -102,28 +102,29 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 export const getUserByLogin = async (req: Request, res: Response): Promise<Response> => {
   try {
     const { login } = req.query;
-    console.log('Получен запрос на получение данных пользователя. Query параметры:', req.query);
+    console.log("Получен запрос на получение данных пользователя. Query параметры:", req.query);
 
     if (!login) {
-      console.log('Ошибка: логин не предоставлен');
+      console.log("Ошибка: логин не предоставлен");
       return res.status(400).json({ message: "Логин не предоставлен" });
     }
 
-    const user = await User.findOne({ login }).select("-password");
+    const user = await UserModel.findOne({ login }).select("-password");
     if (!user) {
-      console.log('Ошибка: пользователь не найден для логина:', login);
+      console.log("Ошибка: пользователь не найден для логина:", login);
       return res.status(404).json({ message: "Пользователь не найден" });
     }
 
-    console.log('Успешно найден пользователь:', user);
+    console.log("Успешно найден пользователь:", user);
     return res.status(200).json({
+      id: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
       login: user.login,
       role: user.role,
     });
   } catch (error) {
-    console.error('Ошибка при получении данных:', error);
+    console.error("Ошибка при получении данных:", error);
     return res.status(500).json({ message: "Ошибка получения данных" });
   }
 };
@@ -136,7 +137,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<Response>
       return res.status(400).json({ message: "Логин не предоставлен" });
     }
 
-    const user = await User.findOneAndDelete({ login });
+    const user = await UserModel.findOneAndDelete({ login });
     if (!user) {
       return res.status(404).json({ message: "Пользователь не найден" });
     }
