@@ -5,6 +5,7 @@ import { connectToRabbitMQ, getChannel } from "./utils/rabbitmq";
 const USER_SERVICE_QUEUE = "user-service";
 const STATUS_SERVICE_QUEUE = "status-service";
 const TAG_SERVICE_QUEUE = "tag-service";
+const COURSE_SERVICE_QUEUE = "course-service";
 
 interface ServiceResponse {
   statusCode: number;
@@ -46,7 +47,7 @@ connectToRabbitMQ()
     console.log(`   - Количество потребителей: ${queueInfo.consumerCount}`);
   })
   .catch((err) => {
-    console.error("❌ Ошибка подключения к RabbitMQ:", err);
+    console.error("Ошибка подключения к RabbitMQ:", err);
   });
 
 const checkRabbitMQReady: RequestHandler = (req, res, next) => {
@@ -98,6 +99,9 @@ app.all("/api/*", async (req, res) => {
       case "tag":
         targetQueue = TAG_SERVICE_QUEUE;
         break;
+      case "course":
+        targetQueue = COURSE_SERVICE_QUEUE;
+        break;
     }
 
     if (targetQueue === "unknown") {
@@ -134,6 +138,8 @@ function determineService(path: string): string {
     return "status";
   } else if (normalizedPath.includes("/tags")) {
     return "tag";
+  } else if (normalizedPath.includes("/courses")) {
+    return "course";
   }
   return "unknown";
 }

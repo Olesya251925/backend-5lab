@@ -76,37 +76,37 @@ export async function connectQueue() {
           await getCourses(req, res as unknown as Response, () => {});
         }
         // Получить курс по ID
-        else if (message.method === "GET" && message.path === "/api/courses/:id") {
+        else if (message.method === "GET" && message.path === "/courses/:id") {
           console.log("Получение курса по ID");
           await getCourseById(req, res as unknown as Response, () => {});
         }
         // Создать новый курс
-        else if (message.method === "POST" && message.path === "/api/courses") {
+        else if (message.method === "POST" && message.path === "/courses") {
           console.log("Создание нового курса");
           await createCourse(req, res as unknown as Response, () => {});
         }
         // Обновить курс
-        else if (message.method === "PUT" && message.path === "/api/courses/:id") {
+        else if (message.method === "PUT" && message.path === "/courses/:id") {
           console.log("Обновление курса");
           await updateCourse(req, res as unknown as Response, () => {});
         }
         // Удалить курс
-        else if (message.method === "DELETE" && message.path === "/api/courses/:id") {
+        else if (message.method === "DELETE" && message.path === "/courses/:id") {
           console.log("Удаление курса");
           await deleteCourse(req, res as unknown as Response, () => {});
         }
         // Получить курс с тегами
-        else if (message.method === "GET" && message.path === "/api/courses/:id/tags") {
+        else if (message.method === "GET" && message.path === "/courses/:id/tags") {
           console.log("Получение курса с тегами");
           await getCourseWithTags(req, res as unknown as Response, () => {});
         }
         // Добавить в избранное
-        else if (message.method === "POST" && message.path === "/api/courses/favorite/:id") {
+        else if (message.method === "POST" && message.path === "/courses/favorite/:id") {
           console.log("Добавление курса в избранное");
           await addToFavorites(req, res as unknown as Response, () => {});
         }
         // Удалить из избранного
-        else if (message.method === "DELETE" && message.path === "/api/courses/favorite/:id") {
+        else if (message.method === "DELETE" && message.path === "/courses/favorite/:id") {
           console.log("Удаление курса из избранного");
           await removeFromFavorites(req, res as unknown as Response, () => {});
         } else {

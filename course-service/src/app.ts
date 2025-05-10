@@ -22,7 +22,7 @@ mongoose
     console.log("Попытка подключения к MongoDB...");
     console.log("MongoDB успешно подключен");
     console.log("База данных: backend-5lab");
-    console.log("Коллекция: course");
+    console.log("Коллекция: courses");
   })
   .catch((error: Error) => console.error("Ошибка подключения к MongoDB:", error));
 
