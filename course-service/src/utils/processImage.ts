@@ -4,24 +4,29 @@ import sharp from "sharp";
 import moment from "moment-timezone";
 
 export const processCourseImage = async (imagePath: string): Promise<string> => {
-  const imageExists = fs.existsSync(imagePath);
-  if (!imageExists) {
-    throw new Error("Файл изображения не найден");
+  const possiblePaths = [
+    path.join("/app/src/images", path.basename(imagePath)),
+    path.join(__dirname, "../../src/images", path.basename(imagePath)),
+    imagePath,
+  ];
+
+  const foundImagePath = possiblePaths.find((p) => fs.existsSync(p));
+
+  if (!foundImagePath) {
+    throw new Error(`Файл изображения не найден по путям: ${possiblePaths.join(", ")}`);
   }
 
   const imageName = `${moment().tz("Asia/Kemerovo").format("YYYY-MM-DDTHH-mm-ss")}.png`;
-  const uploadDir = path.join(__dirname, "..", "uploads");
+  const uploadDir = path.join(__dirname, "../../src/uploads");
+
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
   const newImagePath = path.join(uploadDir, imageName);
-  const watermarkPath = path.join(__dirname, "..", "assets", "watermark.png");
 
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-
-  const watermarkBuffer = await sharp(watermarkPath).resize({ width: 100 }).toBuffer();
-
-  await sharp(imagePath)
-    .resize(800)
-    .composite([{ input: watermarkBuffer, gravity: "southeast" }])
-    .toFile(newImagePath);
+  // Обработка изображения
+  await sharp(foundImagePath).resize(800).toFile(newImagePath);
 
   return `/uploads/${imageName}`;
 };

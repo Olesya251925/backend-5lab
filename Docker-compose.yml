@@ -68,6 +68,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3002:3002"
+    volumes:
+      - ./course-service/src/uploads:/app/src/uploads
+      - ./course-service/src/images:/app/src/images
     depends_on:
       rabbitmq:
         condition: service_healthy

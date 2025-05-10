@@ -2,13 +2,24 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache vips-dev build-base --virtual .build-deps \
+    && npm install -g sharp \
+    && apk del .build-deps
+
 COPY package*.json ./
 COPY tsconfig.json ./
 
 RUN yarn install --frozen-lockfile
 
+RUN mkdir -p /app/src/uploads \
+    && mkdir -p /app/src/images \
+    && chown -R node:node /app/src/uploads \
+    && chown -R node:node /app/src/images
+
 COPY src ./src
 
-RUN mkdir -p /app/user-service/src/models
+RUN chown -R node:node /app
+
+USER node
 
 CMD ["yarn", "run", "start"]
