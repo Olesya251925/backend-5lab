@@ -2,10 +2,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-COPY tsconfig.json ./
-COPY src ./src
+# Копируем package.json и tsconfig.json
+COPY course-service/package*.json ./
+COPY course-service/tsconfig.json ./
 
+# Устанавливаем зависимости
 RUN yarn install
+
+# Копируем исходный код
+COPY course-service/src ./src
+
+# Проверяем наличие необходимых директорий
+RUN mkdir -p /app/user-service/src/models
 
 CMD ["yarn", "run", "start"]

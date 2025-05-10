@@ -4,8 +4,6 @@ import bodyParser from "body-parser";
 import connectDB from "./config/database";
 import apiRouter from "./config/routeConfig";
 import { connectQueue } from "./config/rabbitmq";
-import "module-alias/register";
-import "tsconfig-paths/register";
 
 dotenv.config();
 

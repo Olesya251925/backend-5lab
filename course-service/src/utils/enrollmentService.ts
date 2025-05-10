@@ -1,7 +1,7 @@
-import Progress from "@enrollment/models/enrollment";
-import Lesson from "@lesson/models/lesson";
+import Progress, { IProgress } from "../models/enrollment";
+import Lesson from "../models/lesson";
 import Course from "../models/course";
-import User from "@user/models/user";
+import User from "../models/user";
 
 export const findUser = async (userId: string) => {
   return await User.findOne({ id: userId });
