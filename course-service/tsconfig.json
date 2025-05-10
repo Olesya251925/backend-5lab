@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "outDir": "./dist",
+    "rootDir": "../",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@models/*": ["./src/models/*"],
+      "@tags/*": ["../tag-service/src/*"],
+      "@user/*": ["../user-service/src/*"],
+      "@lesson/*": ["../lesson-service/src/*"],
+      "@enrollment/*": ["../enrollment-service/src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
