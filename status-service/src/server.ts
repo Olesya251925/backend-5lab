@@ -1,7 +1,7 @@
 import app from './app';
 import { connectToRabbitMQ, getChannel } from './utils/rabbitmq';
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3007;
 
 connectToRabbitMQ()
   .then(() => {
@@ -11,10 +11,10 @@ connectToRabbitMQ()
     channel.assertQueue('status-service', { durable: true });
     
     app.listen(PORT, () => {
-      console.log(`🚀 Status Service запущен на порту ${PORT}`);
+      console.log(`Status Service запущен на порту ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error('❌ Ошибка подключения к RabbitMQ:', err);
+    console.error('Ошибка подключения к RabbitMQ:', err);
     process.exit(1);
   });

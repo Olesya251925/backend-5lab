@@ -23,7 +23,6 @@ const connectDB = async () => {
       console.error(`Ошибка подключения (попытка ${attempt}):`, (error as Error).message);
 
       if (attempt < MAX_RETRIES) {
-        console.log(`⏳ Повторная попытка через ${RETRY_DELAY_MS / 1000} сек...`);
         await new Promise((res) => setTimeout(res, RETRY_DELAY_MS));
       } else {
         console.error("Все попытки подключения исчерпаны. Завершение процесса.");

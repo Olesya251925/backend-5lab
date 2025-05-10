@@ -23,18 +23,15 @@ interface RabbitMQMessage {
 
 export async function connectQueue() {
   try {
-    console.log("Попытка подключения к RabbitMQ...");
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
 
     await channel.assertQueue("user-service");
     console.log("Подключено к RabbitMQ");
-    console.log("Ожидание сообщений...");
 
     channel.consume("user-service", async (data) => {
       if (data) {
         const message = JSON.parse(data.content.toString()) as RabbitMQMessage;
-        console.log("📨 Получено сообщение:", message);
 
         const req = {
           method: message.method,
@@ -60,29 +57,17 @@ export async function connectQueue() {
           },
         };
 
-        console.log("🔄 Обработка запроса:", message.method, message.path);
-
         if (message.method === "POST" && message.path === "/auth/register") {
-          console.log(" Регистрация пользователя");
           await register(req, res as unknown as Response);
         } else if (message.method === "POST" && message.path === "/auth/login") {
-          console.log(" Вход пользователя");
           await login(req, res as unknown as Response);
         } else if (message.method === "GET" && message.path === "/auth/me") {
-          console.log("  Получение данных пользователя");
           await getUserByLogin(req, res as unknown as Response);
         } else if (message.method === "DELETE" && message.path === "/auth/delete") {
-          console.log(" Удаление пользователя");
           await deleteUser(req, res as unknown as Response);
         } else {
-          console.log(" Маршрут не найден:", message.path);
           res.status(404).json({ error: "Маршрут не найден" });
         }
-
-        console.log(" Отправка ответа:", {
-          statusCode: res.statusCode,
-          data: res.data,
-        });
 
         if (res.statusCode >= 400) {
           channel.sendToQueue(
@@ -110,7 +95,6 @@ export async function connectQueue() {
         }
 
         channel.ack(data);
-        console.log("Сообщение обработано и подтверждено");
       }
     });
   } catch (error) {

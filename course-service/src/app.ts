@@ -19,7 +19,6 @@ connectQueue();
 mongoose
   .connect("mongodb://mongo:27017/backend-5lab")
   .then(() => {
-    console.log("Попытка подключения к MongoDB...");
     console.log("MongoDB успешно подключен");
     console.log("База данных: backend-5lab");
     console.log("Коллекция: courses");

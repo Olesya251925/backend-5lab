@@ -10,7 +10,6 @@ import { validateRequiredCourseFields } from "../utils/validateCourse";
 import { processCourseImage } from "../utils/processImage";
 import { CourseLevel } from "../types/course";
 
-// Получить все курсы
 export const getCourses = asyncHandler(async (req: Request, res: Response) => {
   try {
     const {
@@ -61,7 +60,6 @@ export const getCourses = asyncHandler(async (req: Request, res: Response) => {
   }
 });
 
-// Получить курс по ID
 export const getCourseById = asyncHandler(async (req: Request, res: Response) => {
   const course = await Course.findOne({ courseId: req.params.id });
 
@@ -73,7 +71,6 @@ export const getCourseById = asyncHandler(async (req: Request, res: Response) =>
   res.json(course);
 });
 
-// создать курс
 export const createCourse = asyncHandler(async (req: Request, res: Response) => {
   const { title, description, price, image, category, level, author, tags, isFavorite } = req.body;
 
@@ -118,7 +115,6 @@ export const createCourse = asyncHandler(async (req: Request, res: Response) => 
   res.status(201).json(newCourse);
 });
 
-// Обновить курс по ID
 export const updateCourse = asyncHandler(async (req: Request, res: Response) => {
   const updatedData = { ...req.body };
 
@@ -142,7 +138,6 @@ export const updateCourse = asyncHandler(async (req: Request, res: Response) => 
   res.json(updatedCourse);
 });
 
-// Удалить курс по ID
 export const deleteCourse = asyncHandler(async (req: Request, res: Response) => {
   try {
     const course = await Course.findOneAndDelete({ courseId: req.params.id });
@@ -165,7 +160,6 @@ export const deleteCourse = asyncHandler(async (req: Request, res: Response) => 
   }
 });
 
-// Добавить курс в избранное
 export const addToFavorites = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
 
@@ -185,16 +179,12 @@ export const addToFavorites = asyncHandler(async (req: Request, res: Response): 
   res.json({ message: "Курс добавлен в избранное", course });
 });
 
-// Удалить курс из избранного
 export const removeFromFavorites = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
-    console.log(`Запрос на удаление курса из избранного с ID: ${id}`);
-
     const course = await Course.findOne({ courseId: id });
     if (!course) {
-      console.log("Курс не найден");
       res.status(404).json({ message: "Курс не найден" });
       return;
     }
@@ -202,14 +192,17 @@ export const removeFromFavorites = asyncHandler(
     course.isFavorited = false;
     await course.save();
 
-    console.log("Курс удален из избранного:", course);
-    res.json({ message: "Курс удален из избранного", course });
+    res.json({
+      message: "Курс удален из избранного",
+      course: course.toObject(),
+    });
   },
 );
 
 export const getCourseWithTags = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
+    console.log(`Запрос тегов курса с ID: ${id}`);
 
     const course = await Course.findOne({ courseId: id });
 

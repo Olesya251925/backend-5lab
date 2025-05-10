@@ -83,8 +83,6 @@ export const handleUserRequest = async (
   path: string,
   body: UserData | LoginCredentials,
 ): Promise<ApiResponse> => {
-  console.log(`🔄 Обработка запроса: ${method} ${path}`);
-
   switch (path) {
     case "/auth/register":
       if (method === "POST") {
@@ -106,8 +104,6 @@ export const handleUserRequest = async (
 
 const registerUser = async (userData: UserData): Promise<ApiResponse> => {
   try {
-    console.log("📝 Регистрация нового пользователя");
-
     const existingUser = await UserModel.findOne({
       $or: [{ login: userData.login }, { id: userData.id }],
     });
@@ -130,7 +126,6 @@ const registerUser = async (userData: UserData): Promise<ApiResponse> => {
     });
 
     await user.save();
-    console.log("Пользователь успешно зарегистрирован");
 
     return {
       status: 201,
@@ -156,8 +151,6 @@ const registerUser = async (userData: UserData): Promise<ApiResponse> => {
 
 const loginUser = async (credentials: LoginCredentials): Promise<ApiResponse> => {
   try {
-    console.log("Попытка входа пользователя");
-
     const user = await UserModel.findOne({ login: credentials.login });
     if (!user) {
       return {
@@ -173,8 +166,6 @@ const loginUser = async (credentials: LoginCredentials): Promise<ApiResponse> =>
         data: { error: "Неверный логин или пароль" },
       };
     }
-
-    console.log("Пользователь успешно вошел в систему");
 
     return {
       status: 200,

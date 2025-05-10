@@ -32,13 +32,11 @@ interface RabbitMQMessage {
 
 export async function connectQueue() {
   try {
-    console.log("Попытка подключения к RabbitMQ...");
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
 
     await channel.assertQueue("course-service");
     console.log("Подключено к RabbitMQ");
-    console.log("Ожидание сообщений...");
 
     channel.consume("course-service", async (data) => {
       if (data) {
@@ -50,7 +48,18 @@ export async function connectQueue() {
           path: message.path,
           body: message.body,
           query: message.query || {},
+          params: {},
         } as Request;
+
+        const pathParts = message.path.split("/").filter(Boolean);
+
+        if (pathParts[0] === "courses") {
+          if (pathParts[1] === "favorite" && pathParts[2]) {
+            req.params.id = pathParts[2];
+          } else if (pathParts[1] && !["favorite", "tags"].includes(pathParts[1])) {
+            req.params.id = pathParts[1];
+          }
+        }
 
         const res: CustomResponse = {
           statusCode: 200,
@@ -69,55 +78,28 @@ export async function connectQueue() {
           },
         };
 
-        console.log("🔄 Обработка запроса:", message.method, message.path);
-
-        if (message.method === "GET" && message.path === "/api/courses") {
-          console.log("Получение всех курсов");
+        if (message.method === "GET" && message.path === "/courses") {
           await getCourses(req, res as unknown as Response, () => {});
-        }
-        // Получить курс по ID
-        else if (message.method === "GET" && message.path === "/courses/:id") {
-          console.log("Получение курса по ID");
-          await getCourseById(req, res as unknown as Response, () => {});
-        }
-        // Создать новый курс
-        else if (message.method === "POST" && message.path === "/courses") {
-          console.log("Создание нового курса");
+        } else if (message.method === "POST" && message.path === "/courses") {
           await createCourse(req, res as unknown as Response, () => {});
-        }
-        // Обновить курс
-        else if (message.method === "PUT" && message.path === "/courses/:id") {
-          console.log("Обновление курса");
-          await updateCourse(req, res as unknown as Response, () => {});
-        }
-        // Удалить курс
-        else if (message.method === "DELETE" && message.path === "/courses/:id") {
-          console.log("Удаление курса");
-          await deleteCourse(req, res as unknown as Response, () => {});
-        }
-        // Получить курс с тегами
-        else if (message.method === "GET" && message.path === "/courses/:id/tags") {
-          console.log("Получение курса с тегами");
-          await getCourseWithTags(req, res as unknown as Response, () => {});
-        }
-        // Добавить в избранное
-        else if (message.method === "POST" && message.path === "/courses/favorite/:id") {
-          console.log("Добавление курса в избранное");
+        } else if (message.method === "POST" && message.path.includes("/favorite/")) {
           await addToFavorites(req, res as unknown as Response, () => {});
-        }
-        // Удалить из избранного
-        else if (message.method === "DELETE" && message.path === "/courses/favorite/:id") {
-          console.log("Удаление курса из избранного");
+        } else if (message.method === "DELETE" && message.path.includes("/favorite/")) {
           await removeFromFavorites(req, res as unknown as Response, () => {});
+        } else if (message.method === "GET" && /\/courses\/\w+\/tags/.test(message.path)) {
+          const match = message.path.match(/\/courses\/(\w+)\/tags/);
+          if (match) req.params.id = match[1];
+          await getCourseWithTags(req, res as unknown as Response, () => {});
+        } else if (message.method === "GET" && message.path.startsWith("/courses/")) {
+          await getCourseById(req, res as unknown as Response, () => {});
+        } else if (message.method === "PUT" && message.path.startsWith("/courses/")) {
+          await updateCourse(req, res as unknown as Response, () => {});
+        } else if (message.method === "DELETE" && message.path.startsWith("/courses/")) {
+          await deleteCourse(req, res as unknown as Response, () => {});
         } else {
-          console.log(" Маршрут не найден:", message.path);
+          console.log("Маршрут не найден:", message.path);
           res.status(404).json({ error: "Маршрут не найден" });
         }
-
-        console.log(" Отправка ответа:", {
-          statusCode: res.statusCode,
-          data: res.data,
-        });
 
         if (res.statusCode >= 400) {
           channel.sendToQueue(

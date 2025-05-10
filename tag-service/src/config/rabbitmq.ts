@@ -14,18 +14,15 @@ interface CustomResponse {
 
 export async function connectQueue() {
   try {
-    console.log('Попытка подключения к RabbitMQ...');
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
 
     await channel.assertQueue('tag-service');
     console.log('Подключено к RabbitMQ');
-    console.log('Ожидание сообщений...');
 
     channel.consume('tag-service', async (data) => {
       if (data) {
         const message = JSON.parse(data.content.toString());
-        console.log('Получено сообщение:', JSON.stringify(message, null, 2));
 
         const req = {
           method: message.method,
@@ -50,31 +47,15 @@ export async function connectQueue() {
             return this;
           }
         };
-
-        console.log('🔄 Обработка запроса:', {
-          method: message.method,
-          path: message.path,
-          body: message.body,
-          correlationId: message.correlationId
-        });
         
         try {
           if (message.method === 'POST' && message.path === '/tags') {
-            console.log('Создание тега');
             await createTag(req, res as unknown as Response, () => {});
           } else if (message.method === 'GET' && message.path === '/tags') {
-            console.log('Просмотр всех тегов');
             await getTags(req, res as unknown as Response, () => {});
           } else {
-            console.log('Маршрут не найден:', message.path);
             res.status(404).json({ error: 'Маршрут не найден' });
           }
-
-          console.log('Отправка ответа:', {
-            statusCode: res.statusCode,
-            data: res.data,
-            correlationId: message.correlationId
-          });
 
           const response: {
             statusCode: number;

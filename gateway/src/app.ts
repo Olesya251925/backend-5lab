@@ -52,7 +52,6 @@ connectToRabbitMQ()
 
 const checkRabbitMQReady: RequestHandler = (req, res, next) => {
   if (!isRabbitMQReady) {
-    console.log("⏳ Ожидание подключения к RabbitMQ...");
     res.status(503).json({ error: "Сервис временно недоступен. Попробуйте позже." });
     return;
   }
@@ -65,11 +64,6 @@ app.all("/api/*", async (req, res) => {
   const { method, path, body } = req;
   const service = determineService(path);
   const startTime = Date.now();
-
-  console.log(`\n${new Date().toISOString()}] Начало обработки запроса:`);
-  console.log(`Метод: ${method}, Путь: ${path}`);
-  console.log(`Тело запроса:`, body);
-  console.log(`Сервис: ${service}`);
 
   try {
     const channel = getChannel();
@@ -136,10 +130,12 @@ function determineService(path: string): string {
     return "user";
   } else if (normalizedPath.includes("/status")) {
     return "status";
-  } else if (normalizedPath.includes("/tags")) {
-    return "tag";
+  } else if (normalizedPath.includes("/courses/") && normalizedPath.includes("/tags")) {
+    return "course";
   } else if (normalizedPath.includes("/courses")) {
     return "course";
+  } else if (normalizedPath.includes("/tags")) {
+    return "tag";
   }
   return "unknown";
 }
