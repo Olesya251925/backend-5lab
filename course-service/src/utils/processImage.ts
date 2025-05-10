@@ -16,6 +16,18 @@ export const processCourseImage = async (imagePath: string): Promise<string> => 
     throw new Error(`Файл изображения не найден по путям: ${possiblePaths.join(", ")}`);
   }
 
+  const possibleWatermarkPaths = [
+    path.join("/app/src/assets", "watermark.png"),
+    path.join(__dirname, "../../src/assets", "watermark.png"),
+    path.join(__dirname, "../assets", "watermark.png"),
+  ];
+
+  const foundWatermarkPath = possibleWatermarkPaths.find((p) => fs.existsSync(p));
+
+  if (!foundWatermarkPath) {
+    throw new Error(`Водяной знак не найден по путям: ${possibleWatermarkPaths.join(", ")}`);
+  }
+
   const imageName = `${moment().tz("Asia/Kemerovo").format("YYYY-MM-DDTHH-mm-ss")}.png`;
   const uploadDir = path.join(__dirname, "../../src/uploads");
 
@@ -25,8 +37,18 @@ export const processCourseImage = async (imagePath: string): Promise<string> => 
 
   const newImagePath = path.join(uploadDir, imageName);
 
-  // Обработка изображения
-  await sharp(foundImagePath).resize(800).toFile(newImagePath);
+  const watermarkBuffer = await sharp(foundWatermarkPath).resize(100).toBuffer();
+
+  await sharp(foundImagePath)
+    .resize(800)
+    .composite([
+      {
+        input: watermarkBuffer,
+        gravity: "southeast",
+        blend: "over",
+      },
+    ])
+    .toFile(newImagePath);
 
   return `/uploads/${imageName}`;
 };
