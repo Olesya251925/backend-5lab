@@ -122,6 +122,25 @@ services:
     networks:
       - app-network
 
+  comment-service:
+    build:
+      context: ./comment-service
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3005"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      - PORT=3005
+      - JWT_SECRET=olesya251925
+      - MONGO_URI=mongodb://mongo:27017/backend-5lab
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    networks:
+      - app-network
+
   status-service:
     build:
       context: ./status-service

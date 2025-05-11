@@ -7,6 +7,7 @@ const STATUS_SERVICE_QUEUE = "status-service";
 const TAG_SERVICE_QUEUE = "tag-service";
 const COURSE_SERVICE_QUEUE = "course-service";
 const LESSON_SERVICE_QUEUE = "lesson-service";
+const COMMENT_SERVICE_QUEUE = "comment-service";
 
 interface ServiceResponse {
   statusCode: number;
@@ -100,6 +101,9 @@ app.all("/api/*", async (req, res) => {
       case "lesson":
         targetQueue = LESSON_SERVICE_QUEUE;
         break;
+      case "comment":
+        targetQueue = COMMENT_SERVICE_QUEUE;
+        break;
     }
 
     if (targetQueue === "unknown") {
@@ -142,6 +146,8 @@ function determineService(path: string): string {
     return "tag";
   } else if (normalizedPath.includes("/lessons")) {
     return "lesson";
+  } else if (normalizedPath.includes("/comments")) {
+    return "comment";
   }
   return "unknown";
 }
