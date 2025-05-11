@@ -38,15 +38,9 @@ connectToRabbitMQ()
 
     const channel = getChannel();
     await channel.assertQueue(USER_SERVICE_QUEUE, { durable: true });
-    console.log(`Очередь ${USER_SERVICE_QUEUE} создана`);
-
     await channel.assertQueue(TAG_SERVICE_QUEUE, { durable: true });
-    console.log(`Очередь ${TAG_SERVICE_QUEUE} создана`);
 
-    const queueInfo = await channel.checkQueue(USER_SERVICE_QUEUE);
-    console.log(`Информация об очереди ${USER_SERVICE_QUEUE}:`);
-    console.log(`   - Количество сообщений: ${queueInfo.messageCount}`);
-    console.log(`   - Количество потребителей: ${queueInfo.consumerCount}`);
+    console.log(`Очереди ${USER_SERVICE_QUEUE} и ${TAG_SERVICE_QUEUE} созданы`);
   })
   .catch((err) => {
     console.error("Ошибка подключения к RabbitMQ:", err);

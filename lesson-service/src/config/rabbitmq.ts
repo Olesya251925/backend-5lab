@@ -33,14 +33,12 @@ export async function connectQueue() {
     const channel = await connection.createChannel();
 
     await channel.assertQueue("lesson-service", { durable: true });
-    console.log("Очередь lesson-service готова к работе");
 
     channel.consume("lesson-service", async (data) => {
       if (!data) return;
 
       try {
         const message = JSON.parse(data.content.toString()) as RabbitMQMessage;
-        console.log(`Получен запрос: ${message.method} ${message.path}`);
 
         const req = {
           method: message.method,
@@ -94,9 +92,9 @@ export async function connectQueue() {
               data: res.data,
               error: res.statusCode >= 400 ? (res.data as any)?.message : undefined,
               correlationId: message.correlationId,
-            }),
+            })
           ),
-          { persistent: true },
+          { persistent: true }
         );
 
         channel.ack(data);

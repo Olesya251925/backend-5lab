@@ -37,7 +37,6 @@ export async function connectQueue() {
     channel.consume("comment-service", async (data) => {
       if (data) {
         const message = JSON.parse(data.content.toString()) as RabbitMQMessage;
-        console.log("Получено сообщение:", JSON.stringify(message, null, 2));
 
         const req = {
           method: message.method,

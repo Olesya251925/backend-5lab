@@ -41,7 +41,6 @@ export async function connectQueue() {
     channel.consume("course-service", async (data) => {
       if (data) {
         const message = JSON.parse(data.content.toString()) as RabbitMQMessage;
-        console.log("Получено сообщение:", message);
 
         const req = {
           method: message.method,

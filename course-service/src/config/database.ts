@@ -12,7 +12,6 @@ const connectDB = async () => {
         throw new Error("Переменная MONGO_URI не задана в .env файле");
       }
 
-      console.log("Попытка подключения к MongoDB...");
       await mongoose.connect(process.env.MONGO_URI);
       console.log("MongoDB успешно подключен");
       console.log("База данных: backend-5lab");

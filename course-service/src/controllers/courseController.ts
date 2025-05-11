@@ -163,11 +163,8 @@ export const deleteCourse = asyncHandler(async (req: Request, res: Response) => 
 export const addToFavorites = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
 
-  console.log(`Запрос на добавление курса в избранное с ID: ${id}`);
-
   const course = await Course.findOne({ courseId: id });
   if (!course) {
-    console.log("Курс не найден");
     res.status(404).json({ message: "Курс не найден" });
     return;
   }
@@ -175,7 +172,6 @@ export const addToFavorites = asyncHandler(async (req: Request, res: Response): 
   course.isFavorited = true;
   await course.save();
 
-  console.log("Курс добавлен в избранное:", course);
   res.json({ message: "Курс добавлен в избранное", course });
 });
 
@@ -202,7 +198,6 @@ export const removeFromFavorites = asyncHandler(
 export const getCourseWithTags = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    console.log(`Запрос тегов курса с ID: ${id}`);
 
     const course = await Course.findOne({ courseId: id });
 
@@ -213,7 +208,6 @@ export const getCourseWithTags = asyncHandler(
 
     const tags = await Tag.find({ tagId: { $in: course.tags } });
 
-    console.log("Полученные теги:");
     tags.forEach((tag) => {
       console.log(`TagId: ${tag.tagId}, Name: ${tag.name}`);
     });
