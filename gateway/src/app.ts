@@ -10,22 +10,6 @@ const LESSON_SERVICE_QUEUE = "lesson-service";
 const COMMENT_SERVICE_QUEUE = "comment-service";
 const ENROLLMENT_SERVICE_QUEUE = "enrollment-service";
 
-interface ServiceResponse {
-  statusCode: number;
-  correlationId: string;
-  data?: {
-    message?: string;
-    error?: string;
-    user?: {
-      firstName: string;
-      lastName: string;
-      login: string;
-      role: string;
-    };
-  };
-  error?: string;
-}
-
 const app = express();
 let isRabbitMQReady = false;
 
@@ -72,12 +56,12 @@ app.use("/api/*", checkRabbitMQReady);
 app.all("/api/*", async (req, res) => {
   const { method, path, body } = req;
   const service = determineService(path);
-  const startTime = Date.now();
 
   try {
     const channel = getChannel();
     const correlationId = generateCorrelationId();
 
+    // Создаем временную очередь для ответа (но мы не ожидаем ответа сейчас)
     const responseQueue = `response-${correlationId}`;
     await channel.assertQueue(responseQueue, { exclusive: true });
 
@@ -120,21 +104,14 @@ app.all("/api/*", async (req, res) => {
       throw new Error("Неизвестный сервис");
     }
 
+    // Отправляем сообщение в нужную очередь
     channel.sendToQueue(targetQueue, Buffer.from(JSON.stringify(message)));
     console.log(`Сообщение отправлено в очередь ${targetQueue}`);
 
-    const response = await waitForResponse(correlationId, responseQueue);
-    const processingTime = Date.now() - startTime;
-
-    console.log(`\n Получен ответ (${processingTime}ms):`, response);
-
-    if (response.error) {
-      res.status(response.statusCode).json({ error: response.error });
-    } else {
-      res.status(response.statusCode).json(response.data);
-    }
+    // Возвращаем клиенту сгенерированный статус ID сразу, без ожидания ответа
+    res.status(202).json({ statusId: correlationId });
   } catch (error: unknown) {
-    console.error(`\n Ошибка при обработке запроса:`, error);
+    console.error(`Ошибка при обработке запроса:`, error);
     res.status(500).json({
       error: "Внутренняя ошибка сервера",
       details: error instanceof Error ? error.message : "Неизвестная ошибка",
@@ -166,33 +143,6 @@ function determineService(path: string): string {
 
 function generateCorrelationId(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
-}
-
-async function waitForResponse(
-  correlationId: string,
-  responseQueue: string,
-): Promise<ServiceResponse> {
-  const channel = getChannel();
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      channel.deleteQueue(responseQueue).catch(console.error);
-      reject(new Error("Таймаут ожидания ответа"));
-    }, 30000);
-
-    channel.consume(responseQueue, (msg) => {
-      if (msg) {
-        const response = JSON.parse(msg.content.toString()) as ServiceResponse;
-        if (response.correlationId === correlationId) {
-          clearTimeout(timeout);
-          channel.ack(msg);
-          setTimeout(() => {
-            channel.deleteQueue(responseQueue).catch(console.error);
-          }, 1000);
-          resolve(response);
-        }
-      }
-    });
-  });
 }
 
 export default app;
