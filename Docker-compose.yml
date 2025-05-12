@@ -171,6 +171,9 @@ services:
         condition: service_healthy
     environment:
       - PORT=3007
+      - JWT_SECRET=olesya251925
+      - MONGO_URI=mongodb://mongo:27017/backend-5lab
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     networks:
       - app-network
 

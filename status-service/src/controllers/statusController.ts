@@ -1,54 +1,68 @@
-import { getChannel } from "../utils/rabbitmq";
-import { Response } from "express";
+import { Request, Response } from "express";
+import Status from "../models/status";
+import { StatusData } from "../types/status";
 
-interface Status {
-  id: number;
-  name: string;
-  description: string;
+interface StatusResponse {
+  status: string;
+  data?: StatusData;
+  error?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const statuses: Status[] = [
-  { id: 1, name: "Active", description: "Active status" },
-  { id: 2, name: "Inactive", description: "Inactive status" },
-];
+interface ErrorResponse {
+  error: string;
+  details?: string;
+}
 
-export const setupStatusHandlers = () => {
-  const channel = getChannel();
+export const createStatus = async (
+  req: Request,
+  res: Response<{ requestId: string; statusUrl: string } | ErrorResponse>,
+) => {
+  try {
+    const requestId = generateRequestId();
 
-  channel.consume("status-service-requests", async (msg) => {
-    if (!msg) return;
+    const status = new Status({
+      requestId,
+      status: "pending",
+    });
+    await status.save();
 
-    const { action, data, correlationId } = JSON.parse(msg.content.toString());
-    let response;
-
-    try {
-      switch (action) {
-        case "getAllStatuses":
-          response = { success: true, data: statuses };
-          break;
-
-        case "createStatus":
-          const newStatus = {
-            id: statuses.length + 1,
-            name: data.name,
-            description: data.description,
-          };
-          statuses.push(newStatus);
-          response = { success: true, data: newStatus };
-          break;
-
-        default:
-          response = { success: false, error: "Unknown action" };
-      }
-
-      channel.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(response)), {
-        correlationId,
-      });
-
-      channel.ack(msg);
-    } catch (error) {
-      console.error("Error processing message:", error);
-      channel.nack(msg);
-    }
-  });
+    res.status(200).json({
+      requestId,
+      statusUrl: `/status/${requestId}`,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Неизвестная ошибка";
+    res.status(500).json({ error: "Не удалось получить статус", details: message });
+  }
 };
+
+export const getStatus = async (
+  req: Request<{ id: string }>,
+  res: Response<StatusResponse | ErrorResponse>,
+) => {
+  try {
+    const { id } = req.params;
+    const status = await Status.findOne({ requestId: id });
+
+    if (!status) {
+      return res.status(404).json({ error: "Статус не найден" });
+    }
+
+    res.json({
+      status: status.status,
+      data: status.data as StatusData | undefined,
+      error: status.error,
+      createdAt: status.createdAt,
+      updatedAt: status.updatedAt,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Неизвестная ошибка";
+    res.status(500).json({ error: "Не удалось получить статус", details: message });
+  }
+};
+
+function generateRequestId(): string {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
