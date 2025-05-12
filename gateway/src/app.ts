@@ -8,6 +8,7 @@ const TAG_SERVICE_QUEUE = "tag-service";
 const COURSE_SERVICE_QUEUE = "course-service";
 const LESSON_SERVICE_QUEUE = "lesson-service";
 const COMMENT_SERVICE_QUEUE = "comment-service";
+const ENROLLMENT_SERVICE_QUEUE = "enrollment-service";
 
 interface ServiceResponse {
   statusCode: number;
@@ -37,10 +38,27 @@ connectToRabbitMQ()
     isRabbitMQReady = true;
 
     const channel = getChannel();
-    await channel.assertQueue(USER_SERVICE_QUEUE, { durable: true });
-    await channel.assertQueue(TAG_SERVICE_QUEUE, { durable: true });
 
-    console.log(`Очереди ${USER_SERVICE_QUEUE} и ${TAG_SERVICE_QUEUE} созданы`);
+    const queues = [
+      USER_SERVICE_QUEUE,
+      STATUS_SERVICE_QUEUE,
+      TAG_SERVICE_QUEUE,
+      COURSE_SERVICE_QUEUE,
+      LESSON_SERVICE_QUEUE,
+      COMMENT_SERVICE_QUEUE,
+      ENROLLMENT_SERVICE_QUEUE,
+    ];
+
+    console.log("Создаем очереди для сервисов:");
+    for (const queue of queues) {
+      await channel.assertQueue(queue, { durable: true });
+      const queueInfo = await channel.checkQueue(queue);
+      console.log(`- ${queue}:`);
+      console.log(`  Сообщений: ${queueInfo.messageCount}`);
+      console.log(`  Потребителей: ${queueInfo.consumerCount}`);
+    }
+
+    console.log("\nВсе очереди успешно созданы и готовы к работе");
   })
   .catch((err) => {
     console.error("Ошибка подключения к RabbitMQ:", err);
@@ -98,6 +116,9 @@ app.all("/api/*", async (req, res) => {
       case "comment":
         targetQueue = COMMENT_SERVICE_QUEUE;
         break;
+      case "enrollment":
+        targetQueue = ENROLLMENT_SERVICE_QUEUE;
+        break;
     }
 
     if (targetQueue === "unknown") {
@@ -142,6 +163,8 @@ function determineService(path: string): string {
     return "lesson";
   } else if (normalizedPath.includes("/comments")) {
     return "comment";
+  } else if (normalizedPath.includes("/enrollments")) {
+    return "enrollment";
   }
   return "unknown";
 }

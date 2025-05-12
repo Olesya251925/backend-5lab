@@ -141,6 +141,25 @@ services:
     networks:
       - app-network
 
+  enrollment-service:
+    build:
+      context: ./enrollment-service
+      dockerfile: Dockerfile
+    ports:
+      - "3006:3006"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      - PORT=3006
+      - JWT_SECRET=olesya251925
+      - MONGO_URI=mongodb://mongo:27017/backend-5lab
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    networks:
+      - app-network
+
   status-service:
     build:
       context: ./status-service
