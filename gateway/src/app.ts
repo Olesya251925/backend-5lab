@@ -36,29 +36,24 @@ connectToRabbitMQ()
   .then(async () => {
     console.log("Gateway успешно подключен к RabbitMQ");
     isRabbitMQReady = true;
-
     const channel = getChannel();
 
     const queues = [
-      USER_SERVICE_QUEUE,
-      STATUS_SERVICE_QUEUE,
-      TAG_SERVICE_QUEUE,
-      COURSE_SERVICE_QUEUE,
-      LESSON_SERVICE_QUEUE,
-      COMMENT_SERVICE_QUEUE,
-      ENROLLMENT_SERVICE_QUEUE,
+      { name: USER_SERVICE_QUEUE, description: "Пользователи" },
+      { name: STATUS_SERVICE_QUEUE, description: "Статусы" },
+      { name: TAG_SERVICE_QUEUE, description: "Теги" },
+      { name: COURSE_SERVICE_QUEUE, description: "Курсы" },
+      { name: LESSON_SERVICE_QUEUE, description: "Уроки" },
+      { name: COMMENT_SERVICE_QUEUE, description: "Комментарии" },
+      { name: ENROLLMENT_SERVICE_QUEUE, description: "Записи на курсы" },
     ];
 
-    console.log("Создаем очереди для сервисов:");
     for (const queue of queues) {
-      await channel.assertQueue(queue, { durable: true });
-      const queueInfo = await channel.checkQueue(queue);
-      console.log(`- ${queue}:`);
-      console.log(`  Сообщений: ${queueInfo.messageCount}`);
-      console.log(`  Потребителей: ${queueInfo.consumerCount}`);
+      await channel.assertQueue(queue.name, { durable: true });
+      console.log(`Очередь "${queue.description}" (${queue.name}) готова`);
     }
 
-    console.log("\nВсе очереди успешно созданы и готовы к работе");
+    console.log("Все очереди успешно инициализированы");
   })
   .catch((err) => {
     console.error("Ошибка подключения к RabbitMQ:", err);

@@ -47,7 +47,6 @@ export async function connectQueue() {
           params: {},
         } as Request;
 
-        // Создаем mock-функцию next для совместимости с Express
         const next = () => {};
 
         const res: CustomResponse = {
@@ -68,33 +67,33 @@ export async function connectQueue() {
         };
 
         try {
-          // 1. Запись на курс
           if (message.method === "POST" && message.path.startsWith("/enrollments/enroll/")) {
             const courseId = message.path.split("/")[3];
             req.params.courseId = courseId;
             await enrollInCourse(req, res as unknown as Response, next);
-          }
-          // 2. Завершение урока
-          else if (message.method === "POST" && message.path.startsWith("/enrollments/complete/")) {
+          } else if (
+            message.method === "POST" &&
+            message.path.startsWith("/enrollments/complete/")
+          ) {
             const parts = message.path.split("/");
             req.params.courseId = parts[3];
             req.params.lessonId = parts[4];
             await completeLesson(req, res as unknown as Response, next);
-          }
-          // 3. Получение прогресса
-          else if (message.method === "GET" && message.path.startsWith("/enrollments/progress/")) {
+          } else if (
+            message.method === "GET" &&
+            message.path.startsWith("/enrollments/progress/")
+          ) {
             const courseId = message.path.split("/")[3];
             req.params.courseId = courseId;
             await getCourseProgress(req, res as unknown as Response, next);
-          }
-          // 4. Подсчет записавшихся
-          else if (message.method === "GET" && message.path.startsWith("/enrollments/count/")) {
+          } else if (message.method === "GET" && message.path.startsWith("/enrollments/count/")) {
             const courseId = message.path.split("/")[3];
             req.params.courseId = courseId;
             await countCourseEnrollments(req, res as unknown as Response, next);
-          }
-          // 5. Отмена прохождения урока
-          else if (message.method === "DELETE" && message.path.startsWith("/enrollments/cancel/")) {
+          } else if (
+            message.method === "DELETE" &&
+            message.path.startsWith("/enrollments/cancel/")
+          ) {
             const parts = message.path.split("/");
             req.params.courseId = parts[3];
             req.params.lessonId = parts[4];
