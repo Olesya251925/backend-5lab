@@ -1,19 +1,38 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
+
+export interface RequestData {
+  method: string;
+  path: string;
+  body: unknown;
+  timestamp: Date;
+}
 
 export interface StatusDocument extends Document {
-  requestId: string;
-  status: string;
-  data?: Record<string, unknown>;
+  statusId: string;
+  requests: RequestData[]; // массив запросов
+  status: "pending" | "success" | "error";
+  result?: unknown;
   error?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
+const requestDataSchema = new Schema<RequestData>(
+  {
+    method: { type: String, required: true },
+    path: { type: String, required: true },
+    body: { type: Schema.Types.Mixed, required: true },
+    timestamp: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const statusSchema = new Schema<StatusDocument>(
   {
-    requestId: { type: String, required: true, unique: true },
-    status: { type: String, required: true },
-    data: { type: Schema.Types.Mixed },
+    statusId: { type: String, required: true, unique: true },
+    requests: { type: [requestDataSchema], default: [] },
+    status: { type: String, required: true, default: "pending" },
+    result: { type: Schema.Types.Mixed },
     error: { type: String },
   },
   { timestamps: true },

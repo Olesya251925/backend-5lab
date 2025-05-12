@@ -54,24 +54,29 @@ const checkRabbitMQReady: RequestHandler = (req, res, next) => {
 app.use("/api/*", checkRabbitMQReady);
 
 app.all("/api/*", async (req, res) => {
-  const { method, path, body } = req;
+  const { method, path, body, query } = req;
   const service = determineService(path);
 
   try {
     const channel = getChannel();
-    const correlationId = generateCorrelationId();
 
-    // Создаем временную очередь для ответа (но мы не ожидаем ответа сейчас)
-    const responseQueue = `response-${correlationId}`;
-    await channel.assertQueue(responseQueue, { exclusive: true });
+    // Если это GET-запрос к статусу, извлекаем statusId из пути, иначе генерируем новый
+    let statusId: string;
+    if (service === "status" && method === "GET") {
+      const match = path.match(/\/status\/([^/]+)/);
+      statusId = match ? match[1] : generateCorrelationId();
+      console.log(`[Gateway] GET /status запрос с statusId=${statusId}`);
+    } else {
+      statusId = generateCorrelationId();
+      console.log(`[Gateway] Новый запрос, сгенерирован statusId=${statusId}`);
+    }
 
     const message = {
+      statusId,
       method,
       path: path.replace("/api", ""),
       body,
-      query: req.query,
-      correlationId,
-      responseQueue,
+      query,
       timestamp: new Date().toISOString(),
     };
 
@@ -104,14 +109,26 @@ app.all("/api/*", async (req, res) => {
       throw new Error("Неизвестный сервис");
     }
 
-    // Отправляем сообщение в нужную очередь
-    channel.sendToQueue(targetQueue, Buffer.from(JSON.stringify(message)));
-    console.log(`Сообщение отправлено в очередь ${targetQueue}`);
+    console.log(`[Gateway] Отправляем сообщение в ${targetQueue} с statusId=${statusId}`);
+    console.log(`[Gateway] Сообщение:`, JSON.stringify(message));
 
-    // Возвращаем клиенту сгенерированный статус ID сразу, без ожидания ответа
-    res.status(202).json({ statusId: correlationId });
+    // Отправляем в очередь сервиса
+    channel.sendToQueue(targetQueue, Buffer.from(JSON.stringify(message)), {
+      persistent: true,
+    });
+
+    // Отправляем в очередь статусов
+    channel.sendToQueue(STATUS_SERVICE_QUEUE, Buffer.from(JSON.stringify(message)), {
+      persistent: true,
+    });
+
+    console.log(`[Gateway] Сообщение также отправлено в очередь ${STATUS_SERVICE_QUEUE}`);
+
+    // Для GET-запроса к статусу можно сразу вернуть данные, если хотите,
+    // но обычно возвращаем статус 202 и statusId для асинхронной обработки
+    res.status(202).json({ statusId });
   } catch (error: unknown) {
-    console.error(`Ошибка при обработке запроса:`, error);
+    console.error(`[Gateway] Ошибка при обработке запроса:`, error);
     res.status(500).json({
       error: "Внутренняя ошибка сервера",
       details: error instanceof Error ? error.message : "Неизвестная ошибка",

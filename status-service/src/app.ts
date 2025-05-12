@@ -1,9 +1,9 @@
-// src/app.ts
 import express from "express";
 import cors from "cors";
-import statusRoutes from "./routes/statusRoutes";
-import { connectQueue } from "./config/rabbitmq";
+import statusRoutes from "./routes/statusRoutes"; // импортируем роутер
+import { connectQueue, getChannel } from "./config/rabbitmq";
 import connectDB from "./config/database";
+import Status from "./models/status";
 
 const app = express();
 const port = process.env.PORT || 3007;
@@ -13,12 +13,53 @@ app.use(express.json());
 
 async function startServer() {
   try {
-    // Подключаем базу данных
     await connectDB();
     console.log("MongoDB подключен");
 
-    // Подключаем RabbitMQ
-    await connectQueue(); // Ждем завершения подключения
+    await connectQueue();
+    console.log("RabbitMQ подключен");
+
+    const channel = getChannel();
+    const STATUS_QUEUE = "status-service";
+
+    await channel.assertQueue(STATUS_QUEUE, { durable: true });
+
+    channel.consume(
+      STATUS_QUEUE,
+      async (msg) => {
+        if (msg) {
+          try {
+            const content = JSON.parse(msg.content.toString());
+            const { statusId, method, path, body, timestamp } = content;
+
+            const existingStatus = await Status.findOne({ statusId });
+
+            if (!existingStatus) {
+              await Status.create({
+                statusId,
+                method,
+                path,
+                body,
+                status: "pending",
+                createdAt: new Date(timestamp),
+                updatedAt: new Date(timestamp),
+              });
+              console.log(`Создан новый статус для ${statusId}`);
+            } else {
+              existingStatus.updatedAt = new Date();
+              await existingStatus.save();
+              console.log(`Обновлен статус updatedAt для ${statusId}`);
+            }
+
+            channel.ack(msg);
+          } catch (err) {
+            console.error("Ошибка обработки сообщения из очереди status-service:", err);
+            channel.nack(msg, false, false);
+          }
+        }
+      },
+      { noAck: false },
+    );
 
     // Подключаем роуты
     app.use("/status", statusRoutes);

@@ -13,6 +13,7 @@ interface CustomResponse {
 }
 
 interface RabbitMQMessage {
+  statusId: string; // Добавляем statusId сюда
   method: string;
   path: string;
   body: unknown;
@@ -21,17 +22,24 @@ interface RabbitMQMessage {
   correlationId: string;
 }
 
+let channel: amqp.Channel;
+
 export async function connectQueue() {
   try {
     const connection = await amqp.connect(RABBITMQ_URL);
-    const channel = await connection.createChannel();
+    channel = await connection.createChannel();
 
-    await channel.assertQueue("user-service");
+    await channel.assertQueue("user-service", { durable: true });
+    await channel.assertQueue("status-updates", { durable: true }); // Очередь для обновлений статусов
+
     console.log("Подключено к RabbitMQ");
 
     channel.consume("user-service", async (data) => {
       if (data) {
         const message = JSON.parse(data.content.toString()) as RabbitMQMessage;
+        console.log(
+          `[User-service] Получено сообщение с statusId=${message.statusId}, path=${message.path}`,
+        );
 
         const req = {
           method: message.method,
@@ -57,17 +65,39 @@ export async function connectQueue() {
           },
         };
 
-        if (message.method === "POST" && message.path === "/auth/register") {
-          await register(req, res as unknown as Response);
-        } else if (message.method === "POST" && message.path === "/auth/login") {
-          await login(req, res as unknown as Response);
-        } else if (message.method === "GET" && message.path === "/auth/me") {
-          await getUserByLogin(req, res as unknown as Response);
-        } else if (message.method === "DELETE" && message.path === "/auth/delete") {
-          await deleteUser(req, res as unknown as Response);
-        } else {
-          res.status(404).json({ error: "Маршрут не найден" });
+        try {
+          if (message.method === "POST" && message.path === "/auth/register") {
+            await register(req, res as unknown as Response);
+          } else if (message.method === "POST" && message.path === "/auth/login") {
+            await login(req, res as unknown as Response);
+          } else if (message.method === "GET" && message.path === "/auth/me") {
+            await getUserByLogin(req, res as unknown as Response);
+          } else if (message.method === "DELETE" && message.path === "/auth/delete") {
+            await deleteUser(req, res as unknown as Response);
+          } else {
+            res.status(404).json({ error: "Маршрут не найден" });
+          }
+        } catch (error) {
+          console.error(
+            `[User-service] Ошибка в контроллере для statusId=${message.statusId}:`,
+            error,
+          );
+          await sendStatusUpdate(
+            message.statusId,
+            "error",
+            null,
+            (error as Error).message,
+            message,
+          );
+          channel.ack(data);
+          return;
         }
+
+        console.log(
+          `[User-service] Отправляем статус success для statusId=${message.statusId} с результатом:`,
+          res.data,
+        );
+        await sendStatusUpdate(message.statusId, "success", res.data, null, message);
 
         if (res.statusCode >= 400) {
           channel.sendToQueue(
@@ -96,9 +126,42 @@ export async function connectQueue() {
 
         channel.ack(data);
       }
-    });
+    }); // <-- Закрываем channel.consume
   } catch (error) {
     console.error("Ошибка подключения к RabbitMQ:", error);
     process.exit(1);
   }
+} // <-- Закрываем функцию connectQueue
+
+async function sendStatusUpdate(
+  statusId: string,
+  status: "pending" | "success" | "error",
+  result: unknown = null,
+  error: string | null = null,
+  originalMessage?: RabbitMQMessage,
+) {
+  if (!channel) {
+    console.error("[User-service] Канал RabbitMQ не инициализирован");
+    return;
+  }
+
+  const updateMessage = {
+    statusId,
+    status,
+    result,
+    error,
+    method: originalMessage?.method,
+    path: originalMessage?.path,
+    body: originalMessage?.body,
+    timestamp: new Date().toISOString(),
+  };
+
+  console.log(
+    `[User-service] Отправляем обновление статуса в очередь status-updates:`,
+    updateMessage,
+  );
+
+  channel.sendToQueue("status-updates", Buffer.from(JSON.stringify(updateMessage)), {
+    persistent: true,
+  });
 }
