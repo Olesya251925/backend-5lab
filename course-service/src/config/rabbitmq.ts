@@ -115,8 +115,6 @@ export async function connectQueue() {
           res.data,
         );
         await sendStatusUpdate(message.statusId, "success", res.data, null, message);
-
-        // Отправляем ответ в очередь ответа
         if (res.statusCode >= 400) {
           channel.sendToQueue(
             message.responseQueue,
