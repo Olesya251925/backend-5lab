@@ -11,17 +11,14 @@ export async function connectQueue() {
     const connection = await amqp.connect(RABBITMQ_URL);
     channel = await connection.createChannel();
 
-    // Основная очередь для запросов статусов
     await channel.assertQueue("status-service", { durable: true });
     console.log("Очередь 'status-service' создана");
 
-    // Очередь для обновлений статусов
     await channel.assertQueue("status-updates", { durable: true });
     console.log("Очередь 'status-updates' создана");
 
     console.log("Status Service успешно подключен к RabbitMQ");
 
-    // Обработчик запросов статусов (GET /status/:statusId)
     channel.consume(
       "status-service",
       async (msg: ConsumeMessage | null) => {
@@ -55,7 +52,6 @@ export async function connectQueue() {
       { noAck: false },
     );
 
-    // Обработчик обновлений статусов
     channel.consume(
       "status-updates",
       async (msg: ConsumeMessage | null) => {
@@ -67,7 +63,6 @@ export async function connectQueue() {
           console.log(`[Status-service] Данные:`, content);
           const { statusId, status, result, error } = content;
 
-          // Обновляем статус, добавляем поля result и error при необходимости
           await Status.findOneAndUpdate(
             { statusId },
             {

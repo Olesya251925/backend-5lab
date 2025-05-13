@@ -246,4 +246,13 @@ This returns the total number of users enrolled in the course.
 
 The request should include the `userId` (the ID of the user) to check enrollment information specific to that user.
 
+# CHAPTER 5 - COURSE ENROLLMENT AND LESSON PROGRESS
+
+## Microservices
+
+The application is divided into microservices, where each is responsible for its own part and runs on its own port. For any completed request (as described above), the server returns a `StatusId` that allows you to track the state of that specific request. The single entry point on port 3000 receives all client requests and, by analyzing the path and method, uses RabbitMQ to route them to the appropriate microservice (user-service, course-service, lesson-service, etc.). This way, the client interacts with only one address, while routing and request processing are distributed among services through the message queue.
+
+**GET**  
+`http://localhost:3000/api/status/:statusId`
+
 To run the project, you need to install the necessary dependencies and start the project with the command `docker-compose up --build`.

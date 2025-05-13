@@ -23,29 +23,23 @@ export const getCourses = asyncHandler(async (req: Request, res: Response) => {
 
     const filter: Record<string, unknown> = {};
 
-    // Поиск по названию
     if (search) {
       filter.title = { $regex: search, $options: "i" };
     }
 
-    // Фильтрация по категории
     if (category) {
       filter.category = category;
     }
 
-    // Получение общего количества курсов с учетом фильтров
     const count = await Course.countDocuments(filter);
 
-    // Пагинация
     const currentPage = Number(page);
     const currentLimit = Number(limit);
     const skip = (currentPage - 1) * currentLimit;
 
-    // Сортировка
     const sortOptions: Record<string, 1 | -1> = {};
     sortOptions[sortBy] = sortOrder === "asc" ? 1 : -1;
 
-    // Получение курсов с учетом фильтров, сортировки и пагинации
     const courses = await Course.find(filter).sort(sortOptions).limit(currentLimit).skip(skip);
 
     res.json({

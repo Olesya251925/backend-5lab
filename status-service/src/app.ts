@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import statusRoutes from "./routes/statusRoutes"; // импортируем роутер
+import statusRoutes from "./routes/statusRoutes";
 import { connectQueue, getChannel } from "./config/rabbitmq";
 import connectDB from "./config/database";
 import Status from "./models/status";
@@ -61,10 +61,8 @@ async function startServer() {
       { noAck: false },
     );
 
-    // Подключаем роуты
     app.use("/status", statusRoutes);
 
-    // Обработчик ошибок
     app.use((err: Error, req: express.Request, res: express.Response) => {
       console.error(err.stack);
       res.status(500).json({ error: "Что-то пошло не так!" });

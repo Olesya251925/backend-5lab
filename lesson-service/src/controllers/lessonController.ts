@@ -9,7 +9,6 @@ import {
   ICourseInfo,
 } from "../types/lesson";
 
-// Получить все уроки
 export const getLessons = async (req: Request, res: Response) => {
   try {
     const lessons = await Lesson.find();
@@ -20,7 +19,6 @@ export const getLessons = async (req: Request, res: Response) => {
   }
 };
 
-// Получить урок по ID
 export const getLessonById = async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.id);
@@ -76,7 +74,6 @@ const generateNewId = async (): Promise<number> => {
   }
 };
 
-// Создание нового урока
 export const createLesson = async (req: Request, res: Response) => {
   try {
     const { title, content, videoUrl, courseIds, order }: ILessonCreateRequest = req.body;
@@ -110,7 +107,6 @@ export const createLesson = async (req: Request, res: Response) => {
   }
 };
 
-// Обновить урок
 export const updateLesson = async (req: Request, res: Response) => {
   try {
     const lessonId = parseInt(req.params.id);
@@ -148,7 +144,6 @@ export const updateLesson = async (req: Request, res: Response) => {
   }
 };
 
-// Удалить урок
 export const deleteLesson = async (req: Request, res: Response) => {
   try {
     const deletedLesson = await Lesson.findOneAndDelete({

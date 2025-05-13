@@ -135,10 +135,8 @@ export async function connectQueue() {
           error
         );
 
-        // Отправляем статус error
         await sendStatusUpdate(message.statusId, "error", null, (error as Error).message, message);
 
-        // Отправляем ошибку в очередь ответа
         channel.sendToQueue(
           message.responseQueue,
           Buffer.from(

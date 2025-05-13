@@ -9,7 +9,7 @@ export interface RequestData {
 
 export interface StatusDocument extends Document {
   statusId: string;
-  requests: RequestData[]; // массив запросов
+  requests: RequestData[];
   status: "pending" | "success" | "error";
   result?: unknown;
   error?: string;

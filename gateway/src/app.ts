@@ -135,20 +135,16 @@ app.all("/api/*", async (req, res) => {
     console.log(`[Gateway] Отправляем сообщение в ${targetQueue} с statusId=${statusId}`);
     console.log(`[Gateway] Сообщение:`, JSON.stringify(message));
 
-    // Отправляем в очередь сервиса
     channel.sendToQueue(targetQueue, Buffer.from(JSON.stringify(message)), {
       persistent: true,
     });
 
-    // Отправляем в очередь статусов
     channel.sendToQueue(STATUS_SERVICE_QUEUE, Buffer.from(JSON.stringify(message)), {
       persistent: true,
     });
 
     console.log(`[Gateway] Сообщение также отправлено в очередь ${STATUS_SERVICE_QUEUE}`);
 
-    // Для GET-запроса к статусу можно сразу вернуть данные, если хотите,
-    // но обычно возвращаем статус 202 и statusId для асинхронной обработки
     res.status(202).json({ statusId });
   } catch (error: unknown) {
     console.error(`[Gateway] Ошибка при обработке запроса:`, error);
