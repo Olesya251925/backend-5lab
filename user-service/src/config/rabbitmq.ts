@@ -13,7 +13,7 @@ interface CustomResponse {
 }
 
 interface RabbitMQMessage {
-  statusId: string; // Добавляем statusId сюда
+  statusId: string;
   method: string;
   path: string;
   body: unknown;
@@ -30,7 +30,7 @@ export async function connectQueue() {
     channel = await connection.createChannel();
 
     await channel.assertQueue("user-service", { durable: true });
-    await channel.assertQueue("status-updates", { durable: true }); // Очередь для обновлений статусов
+    await channel.assertQueue("status-updates", { durable: true });
 
     console.log("Подключено к RabbitMQ");
 
@@ -126,12 +126,12 @@ export async function connectQueue() {
 
         channel.ack(data);
       }
-    }); // <-- Закрываем channel.consume
+    });
   } catch (error) {
     console.error("Ошибка подключения к RabbitMQ:", error);
     process.exit(1);
   }
-} // <-- Закрываем функцию connectQueue
+}
 
 async function sendStatusUpdate(
   statusId: string,

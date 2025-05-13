@@ -22,6 +22,7 @@ interface CustomResponse {
 }
 
 interface RabbitMQMessage {
+  statusId: string;
   method: string;
   path: string;
   body: unknown;
@@ -30,24 +31,33 @@ interface RabbitMQMessage {
   correlationId: string;
 }
 
+let channel: amqp.Channel;
+
 export async function connectQueue() {
   try {
     const connection = await amqp.connect(RABBITMQ_URL);
-    const channel = await connection.createChannel();
+    channel = await connection.createChannel();
 
-    await channel.assertQueue("course-service");
+    await channel.assertQueue("course-service", { durable: true });
+    await channel.assertQueue("status-updates", { durable: true });
+
     console.log("Подключено к RabbitMQ");
 
     channel.consume("course-service", async (data) => {
-      if (data) {
+      if (!data) return;
+
+      try {
         const message = JSON.parse(data.content.toString()) as RabbitMQMessage;
+        console.log(
+          `[Course-service] Получено сообщение с statusId=${message.statusId}, path=${message.path}`,
+        );
 
         const req = {
           method: message.method,
           path: message.path,
           body: message.body,
           query: message.query || {},
-          params: {},
+          params: {} as Record<string, string>,
         } as Request;
 
         const pathParts = message.path.split("/").filter(Boolean);
@@ -100,6 +110,13 @@ export async function connectQueue() {
           res.status(404).json({ error: "Маршрут не найден" });
         }
 
+        console.log(
+          `[Course-service] Отправляем статус success для statusId=${message.statusId} с результатом:`,
+          res.data,
+        );
+        await sendStatusUpdate(message.statusId, "success", res.data, null, message);
+
+        // Отправляем ответ в очередь ответа
         if (res.statusCode >= 400) {
           channel.sendToQueue(
             message.responseQueue,
@@ -126,11 +143,63 @@ export async function connectQueue() {
         }
 
         channel.ack(data);
-        console.log("Сообщение обработано и подтверждено");
+      } catch (error) {
+        console.error(`[Course-service] Ошибка в контроллере:`, error);
+
+        let statusId = "unknown";
+        let originalMessage: RabbitMQMessage | undefined;
+        try {
+          if (data) {
+            originalMessage = JSON.parse(data.content.toString()) as RabbitMQMessage;
+            statusId = originalMessage.statusId;
+          }
+        } catch (parseError) {
+          console.warn(
+            "[Course-service] Не удалось распарсить сообщение для получения statusId:",
+            parseError,
+          );
+        }
+
+        await sendStatusUpdate(statusId, "error", null, (error as Error).message, originalMessage);
+
+        channel.ack(data);
       }
     });
   } catch (error) {
     console.error("Ошибка подключения к RabbitMQ:", error);
     process.exit(1);
   }
+}
+
+async function sendStatusUpdate(
+  statusId: string,
+  status: "pending" | "success" | "error",
+  result: unknown = null,
+  error: string | null = null,
+  originalMessage?: RabbitMQMessage,
+) {
+  if (!channel) {
+    console.error("[Course-service] Канал RabbitMQ не инициализирован");
+    return;
+  }
+
+  const updateMessage = {
+    statusId,
+    status,
+    result,
+    error,
+    method: originalMessage?.method,
+    path: originalMessage?.path,
+    body: originalMessage?.body,
+    timestamp: new Date().toISOString(),
+  };
+
+  console.log(
+    `[Course-service] Отправляем обновление статуса в очередь status-updates:`,
+    updateMessage,
+  );
+
+  channel.sendToQueue("status-updates", Buffer.from(JSON.stringify(updateMessage)), {
+    persistent: true,
+  });
 }
