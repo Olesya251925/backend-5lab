@@ -19,6 +19,7 @@ interface CustomResponse {
 }
 
 interface RabbitMQMessage {
+  statusId: string;
   method: string;
   path: string;
   body: unknown;
@@ -27,49 +28,64 @@ interface RabbitMQMessage {
   correlationId: string;
 }
 
+let channel: amqp.Channel;
+
 export async function connectQueue() {
   try {
     const connection = await amqp.connect(RABBITMQ_URL);
-    const channel = await connection.createChannel();
+    channel = await connection.createChannel();
 
     await channel.assertQueue("lesson-service", { durable: true });
+    await channel.assertQueue("status-updates", { durable: true });
+
+    console.log("Подключено к RabbitMQ");
 
     channel.consume("lesson-service", async (data) => {
       if (!data) return;
 
+      let message: RabbitMQMessage;
+
       try {
-        const message = JSON.parse(data.content.toString()) as RabbitMQMessage;
+        message = JSON.parse(data.content.toString()) as RabbitMQMessage;
+      } catch (parseError) {
+        console.error("Ошибка парсинга сообщения:", parseError);
+        channel.ack(data);
+        return;
+      }
 
-        const req = {
-          method: message.method,
-          path: message.path,
-          body: message.body,
-          query: message.query || {},
-          params: {},
-        } as Request;
+      await sendStatusUpdate(message.statusId, "pending", null, null, message);
 
-        const pathParts = message.path.split("/").filter(Boolean);
-        if (pathParts[0] === "lessons" && pathParts[1]) {
-          req.params.id = pathParts[1];
-        }
+      const req = {
+        method: message.method,
+        path: message.path,
+        body: message.body,
+        query: message.query || {},
+        params: {} as Record<string, string>,
+      } as Request;
 
-        const res: CustomResponse = {
-          statusCode: 200,
-          data: null,
-          status(code: number) {
-            this.statusCode = code;
-            return this;
-          },
-          json(data: unknown) {
-            this.data = data;
-            return this;
-          },
-          end() {
-            this.data = null;
-            return this;
-          },
-        };
+      const pathParts = message.path.split("/").filter(Boolean);
+      if (pathParts[0] === "lessons" && pathParts[1]) {
+        req.params.id = pathParts[1];
+      }
 
+      const res: CustomResponse = {
+        statusCode: 200,
+        data: null,
+        status(code: number) {
+          this.statusCode = code;
+          return this;
+        },
+        json(data: unknown) {
+          this.data = data;
+          return this;
+        },
+        end() {
+          this.data = null;
+          return this;
+        },
+      };
+
+      try {
         if (message.method === "POST" && message.path === "/lessons") {
           await createLesson(req, res as unknown as Response);
         } else if (message.method === "GET" && message.path === "/lessons") {
@@ -83,6 +99,8 @@ export async function connectQueue() {
         } else {
           res.status(404).json({ error: "Маршрут не найден" });
         }
+
+        await sendStatusUpdate(message.statusId, "success", res.data, null, message);
 
         channel.sendToQueue(
           message.responseQueue,
@@ -99,12 +117,63 @@ export async function connectQueue() {
 
         channel.ack(data);
       } catch (error) {
-        console.error("Ошибка обработки сообщения:", error);
-        channel.nack(data);
+        console.error(
+          `[Lesson-service] Ошибка в контроллере для statusId=${message.statusId}:`,
+          error
+        );
+
+        await sendStatusUpdate(message.statusId, "error", null, (error as Error).message, message);
+
+        channel.sendToQueue(
+          message.responseQueue,
+          Buffer.from(
+            JSON.stringify({
+              statusCode: 500,
+              error: (error as Error).message || "Внутренняя ошибка сервиса",
+              correlationId: message.correlationId,
+            })
+          ),
+          { persistent: true }
+        );
+
+        channel.ack(data);
       }
     });
   } catch (error) {
     console.error("Ошибка подключения к RabbitMQ:", error);
     process.exit(1);
   }
+}
+
+async function sendStatusUpdate(
+  statusId: string,
+  status: "pending" | "success" | "error",
+  result: unknown = null,
+  error: string | null = null,
+  originalMessage?: RabbitMQMessage
+) {
+  if (!channel) {
+    console.error("[Lesson-service] Канал RabbitMQ не инициализирован");
+    return;
+  }
+
+  const updateMessage = {
+    statusId,
+    status,
+    result,
+    error,
+    method: originalMessage?.method,
+    path: originalMessage?.path,
+    body: originalMessage?.body,
+    timestamp: new Date().toISOString(),
+  };
+
+  console.log(
+    `[Lesson-service] Отправляем обновление статуса в очередь status-updates:`,
+    updateMessage
+  );
+
+  channel.sendToQueue("status-updates", Buffer.from(JSON.stringify(updateMessage)), {
+    persistent: true,
+  });
 }
