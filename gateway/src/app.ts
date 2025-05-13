@@ -1,5 +1,6 @@
 import express, { RequestHandler } from "express";
 import cors from "cors";
+import axios from "axios";
 import { connectToRabbitMQ, getChannel } from "./utils/rabbitmq";
 
 const USER_SERVICE_QUEUE = "user-service";
@@ -53,14 +54,36 @@ const checkRabbitMQReady: RequestHandler = (req, res, next) => {
 
 app.use("/api/*", checkRabbitMQReady);
 
+app.get("/api/status/:statusId", async (req, res) => {
+  const { statusId } = req.params;
+
+  try {
+    const statusServiceUrl = `http://status-service:3007/api/status/${statusId}`;
+    console.log(`[Gateway] Запрос к статус-сервису: ${statusServiceUrl}`);
+
+    const response = await axios.get(statusServiceUrl);
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error("[Gateway] Ошибка получения статуса:", error);
+    if (axios.isAxiosError(error) && error.response) {
+      res.status(error.response.status).json(error.response.data);
+    } else {
+      res.status(500).json({
+        error: "Ошибка сервиса статусов",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+});
+
 app.all("/api/*", async (req, res) => {
-  const { method, path, body, query } = req;
+  const { method, body, query } = req;
+  const path = req.path;
   const service = determineService(path);
 
   try {
     const channel = getChannel();
 
-    // Если это GET-запрос к статусу, извлекаем statusId из пути, иначе генерируем новый
     let statusId: string;
     if (service === "status" && method === "GET") {
       const match = path.match(/\/status\/([^/]+)/);
